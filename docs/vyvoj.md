@@ -16,6 +16,10 @@ cd app && flutter analyze && flutter test
 # test mostu Dart → Rust nad skutečnými daty v ~/.dsgui (jen čtení)
 cd app && flutter test --dart-define=DATOVKA_FFI=$PWD/../target/release/libdatovka_ffi.dylib \
   test/core_bridge_test.dart
+# všechny SOAP požadavky proti schématům ISDS (potřebuje xmllint)
+DATOVKA_ISDS_XSD=reference/isds-docs cargo test -p datovka-core schema_check
+# jen čtecí operace proti ostrému ISDS se schránkami z dsgui.conf (jméno a heslo)
+DATOVKA_DIR=~/.dsgui DATOVKA_LIVE=1 cargo test -p datovka-core --test production -- --ignored --nocapture
 ```
 
 Testy jádra používají vzorová ZFO z `reference/datovka-qt/tests/data` (když
