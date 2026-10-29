@@ -58,6 +58,7 @@ void main() {
     expect(find.text('Přílohy'), findsOneWidget);
     expect(find.text('Vývoj je podporován NENDE.cz'), findsOneWidget);
     expect(find.text('Připraveno'), findsOneWidget);
+    expect(find.text('verze $appVersion'), findsOneWidget);
     expect(find.byIcon(Icons.menu), findsNothing);
   });
 

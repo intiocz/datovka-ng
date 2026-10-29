@@ -14,13 +14,22 @@ import 'app_lock.dart';
 import 'connect_assistant.dart';
 
 /// Preferences of this device (⌘, on macOS).
-Future<void> showSettings(BuildContext context, [AppState? state]) async {
+/// [page] opens a section right away, e.g. `updates`.
+Future<void> showSettings(
+  BuildContext context, [
+  AppState? state,
+  String? page,
+]) async {
   final s = state ?? AppScope.of(context);
   final repo = await ReleaseSource.repo();
   if (!context.mounted) return;
   return showDialog(
     context: context,
-    builder: (_) => _SettingsDialog(state: s, repo: repo),
+    builder: (_) => _SettingsDialog(
+      state: s,
+      repo: repo,
+      page: _Page.values.where((p) => p.name == page).firstOrNull,
+    ),
   );
 }
 
@@ -43,8 +52,9 @@ enum _Page {
 class _SettingsDialog extends StatefulWidget {
   final AppState state;
   final String repo;
+  final _Page? page;
 
-  const _SettingsDialog({required this.state, required this.repo});
+  const _SettingsDialog({required this.state, required this.repo, this.page});
 
   @override
   State<_SettingsDialog> createState() => _SettingsDialogState();
@@ -53,7 +63,7 @@ class _SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<_SettingsDialog> {
   late var _st = widget.state.settings;
   late var _repo = widget.repo;
-  var _page = _Page.sync;
+  late var _page = widget.page ?? _Page.sync;
   _Update? _update;
   ReleaseInfo? _newer;
   String _updateError = '';

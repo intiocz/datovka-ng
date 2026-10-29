@@ -4,6 +4,7 @@ import '../data/updates.dart';
 import '../theme.dart';
 import 'app_scope.dart';
 import 'help_view.dart';
+import 'settings_dialog.dart';
 
 /// Bottom line: what the app is doing, and who pays for the work.
 class StatusBar extends StatefulWidget {
@@ -73,6 +74,21 @@ class _StatusBarState extends State<StatusBar> {
                   style: text.bodySmall,
                 ),
               ),
+              // The running version; on a phone there is no room for it.
+              if (MediaQuery.sizeOf(context).width >= 520)
+                Tooltip(
+                  message: 'Zkontrolovat, jestli není novější verze',
+                  child: InkWell(
+                    onTap: () => showSettings(context, null, 'updates'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'verze $appVersion',
+                        style: text.bodySmall?.copyWith(color: t.inkMuted),
+                      ),
+                    ),
+                  ),
+                ),
               TextButton(
                 onPressed: () => showHelp(context),
                 style: TextButton.styleFrom(
