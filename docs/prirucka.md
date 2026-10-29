@@ -1,7 +1,7 @@
 # Datovka NG – uživatelská příručka
 
-Datovka NG je klient datových schránek (ISDS) pro macOS, Windows 10 a novější, Ubuntu, Debian, Mint
-a iPhone. Pracuje se stejnými daty jako původní Datovka od CZ.NIC, takže po
+Datovka NG je klient datových schránek (ISDS) pro macOS, Windows 10 a novější,
+Linux (Ubuntu, Debian, Mint; Intel i ARM), iPhone a Android. Pracuje se stejnými daty jako původní Datovka od CZ.NIC, takže po
 spuštění vidíte své schránky, uložená hesla a historii zpráv. Do obchodů se
 zatím nedává. Nové verze se berou z balíčků na GitHubu.
 
@@ -18,6 +18,10 @@ v Nastavení nezkopíruje do Dokumentů. Uvnitř souboru jsou pořád stejné da
 | `messages.shelf.db` | údaje o schránkách (ID, vlastník) |
 | `{uživatel}_{rok}___0.db` | zprávy daného roku včetně podepsaných originálů (ZFO) |
 | `.datovka-zamek.json` | zámek: které zařízení právě zapisuje |
+
+Na Windows a Linuxu je archiv ve složce `.dsgui` v domovské složce, stejně
+jako u původní Datovky. Na Androidu je v úložišti aplikace a přenáší se
+zálohou (Nástroje → Záloha / Obnovit ze zálohy).
 
 Ve Finderu nastavte u složky `Datovka` v iCloud Drive „Ponechat staženo“, aby ji
 systém neuvolnil z disku.
@@ -55,6 +59,12 @@ nikdy nepřihlašují. Když jim vyprší přihlášení, objeví se nad sezname
 pruh s tlačítkem *Přihlásit*. Aplikace sama neotevírá okna, nebere fokus
 a neposílá opakovaná upozornění.
 
+Zprávu odeslanou z Datovky ISDS obvykle během několika vteřin dodá do
+schránky adresáta. Teprve pak se dá stáhnout. Datovka se proto po odeslání
+několikrát krátce po sobě podívá do ISDS a zprávu stáhne do Odeslaných,
+obvykle do minuty. Vypnout jde v Nastavení → Stahování (*Odeslanou zprávu
+stáhnout hned*), zpráva pak přijde s dalším stahováním.
+
 ## Čtení zprávy
 
 - Otevřením se zpráva označí jako přečtená, stejně jako v původní Datovce.
@@ -78,8 +88,8 @@ a neposílá opakovaná upozornění.
 5. Přidejte dokumenty: přetáhněte je do okna z plochy, Finderu nebo jiné
    aplikace, nebo použijte *Přidat soubory*. První je hlavní písemnost, další
    jsou přílohy.
-6. Klikněte na *Odeslat*. Po odeslání se zobrazí ID nové zprávy a zpráva se
-   stáhne do Odeslaných.
+6. Klikněte na *Odeslat*. Po odeslání se zobrazí ID nové zprávy. Do
+   Odeslaných se zpráva stáhne, jakmile ji ISDS dodá (viz Stahování zpráv).
 
 U odpovědi se automaticky vyplní adresát, věc s předponou „Re:“ a prohozená
 čísla jednací.
@@ -130,16 +140,20 @@ případně první schránkou s uloženým heslem.
 - **Pokročilé hledání**: ikona filtru vedle vyhledávání (datum, nepřečtené,
   se lhůtou, štítek).
 - **Koncepty**: složka Koncepty; rozepsanou zprávu uložíte tlačítkem *Uložit koncept*.
-- **Schránky**: pravým tlačítkem na schránku – informace o schránce (vlastník,
-  uživatelé, kredit, datový trezor, heslo a jeho změna), přihlásit/odhlásit,
-  posunout, odebrat. Pořadí změníte i přetažením. Schránka s přihlášením přes
+- **Schránky**: pravým tlačítkem na schránku (na telefonu podržením) –
+  informace o schránce (vlastník, uživatelé, kredit, datový trezor, heslo
+  a jeho změna), přejmenovat, způsob přihlášení, přihlásit/odhlásit, napsat
+  zprávu, *Odebrat schránku…*. Odebraná schránka zmizí ze seznamu a její
+  uložené heslo se smaže, archiv zpráv zůstane. Pořadí na počítači změníte
+  přetažením, na telefonu jsou schránky podle abecedy. Schránka s přihlášením přes
   SMS nebo bezpečnostní kód potřebuje ke změně hesla i kód: tlačítko
   *Poslat SMS* si ho vyžádá (zadejte nejdřív současné heslo).
 - **Nástroje** (⋮ vlevo dole): ověřit soubor ZFO, importovat ZFO (nebo je
   přetáhněte do okna), přehled korespondence do CSV, záloha a obnova,
   AI asistent, nastavení.
-- **Nastavení** (⌘,): jak často stahovat, stahování po spuštění, označování
-  přečtení v ISDS.
+- **Nastavení** (⌘,): jak často stahovat, stahování po spuštění, stažení
+  odeslané zprávy hned po dodání, označování přečtení v ISDS, síť (proxy),
+  archiv, asistent, aktualizace. Na telefonu také zámek.
 
 ## Další nástroje
 
@@ -167,17 +181,31 @@ případně první schránkou s uloženým heslem.
 
 ## Instalace
 
-- **macOS**: otevřete `DatovkaNG.dmg` a přetáhněte Datovku NG do Aplikací. Aplikace
-  není podepsaná certifikátem Apple; při prvním spuštění na jiném Macu ji
-  otevřete pravým tlačítkem → Otevřít.
-- **iPhone/iPad**: sestavení přes `scripts/build-ios.sh`; k instalaci je potřeba
-  podepsat ji v Xcode vlastním Apple ID. Při prvním spuštění vyberete
-  v Souborech složku iCloud Drive → Datovka archiv (stejnou jako na Macu). Pak se
-  otevírá sama a zprávy se stahují stejně jako na počítači. Přílohy se otevírají
-  v náhledu, odkud je sdílíte nebo uložíte. V Nastavení → Zámek lze zapnout
-  zamykání přes Face ID nebo kód telefonu, při spuštění a po návratu do aplikace.
-- **Android, Windows, Linux**: viz `docs/vyvoj.md`. Na Androidu není iCloud,
-  složku s daty je potřeba synchronizovat jinak (např. Syncthing, Nextcloud).
+Balíčky jsou u [vydání na GitHubu](https://github.com/intiocz/datovka-ng/releases/latest).
+
+- **macOS**: `DatovkaNG-macos.zip` rozbalte a Datovku NG přetáhněte do
+  Aplikací. Aplikace není podepsaná certifikátem Apple, poprvé ji otevřete
+  pravým tlačítkem → Otevřít.
+- **Windows 10 a 11**: `DatovkaNG-windows-amd64.zip` rozbalte a spusťte
+  `datovka-ng.exe`.
+- **Linux**: `sudo apt install ./DatovkaNG-linux-amd64.deb`, na počítači
+  s procesorem ARM `DatovkaNG-linux-arm64.deb`. Hesla jdou do systémové
+  klíčenky. Kdo se přihlašuje automaticky, nemá ji ještě založenou: při prvním
+  uložení hesla se systém zeptá na heslo k nové klíčence.
+- **Android**: `DatovkaNG-android.apk` otevřete v telefonu a povolte instalaci.
+  Na Androidu není iCloud, archiv se přenáší zálohou ZIP (Nástroje → Záloha
+  na počítači, Obnovit ze zálohy v telefonu).
+- **iPhone/iPad**: v App Store není, sestavuje se přes `scripts/build-ios.sh`
+  a podepisuje v Xcode vlastním Apple ID. Při prvním spuštění vyberete
+  v Souborech složku iCloud Drive → Datovka archiv (stejnou jako na Macu).
+  Přílohy se otevírají v náhledu, odkud je sdílíte nebo uložíte.
+
+Na telefonu lze v Nastavení → Zámek zapnout zamykání přes Face ID, otisk
+prstu nebo kód telefonu, při spuštění a po návratu do aplikace.
+
+Na Macu, Windows a Linuxu se aplikace při startu podívá, jestli není novější
+verze, a nabídne ji i se seznamem změn. Po potvrzení se sama nainstaluje.
+Ručně to zkontrolujete kliknutím na číslo verze ve stavovém řádku.
 
 ## AI asistent
 
@@ -200,8 +228,9 @@ Model v počítači ani Claude Code v telefonu běžet nemohou.
 | Hláška | Co dělat |
 |---|---|
 | *zařízení X právě zapisuje* | Čtení funguje. Chvíli počkejte a zvolte Znovu. Když je to zařízení vypnuté, zvolte Převzít. |
-| *heslo je chráněné PINem* | Zadávání PINu zatím není hotové. |
-| *způsob přihlášení … vyžaduje přihlášení v aplikaci* | Schránka s SMS, kódem nebo mobilním klíčem. Interaktivní přihlášení zatím není napojené na ISDS. |
+| *přihlášení vypršelo* | Schránka s SMS, kódem nebo mobilním klíčem. Klikněte na *Přihlásit* v pruhu nad seznamem. |
+| *heslo se neuložilo: systém se ptal na heslo k nové klíčence* | Linux: uložte heslo znovu a v systémovém okně zvolte heslo klíčence. |
+| *nepodařilo se spojit se serverem*, *spojení se serverem se přerušilo* | Datovka zkouší spojení znovu sama. Pokud hláška trvá, zkontrolujte připojení nebo proxy v Nastavení → Síť. |
 | *ISDS chyba …* | Text chyby pochází přímo z ISDS (např. neplatný adresát nebo nepovolený formát přílohy). |
 
 ## Bez záruky

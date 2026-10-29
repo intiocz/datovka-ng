@@ -64,6 +64,16 @@ class HelpView extends StatelessWidget {
             'Nad seznamem se jen objeví pruh Přihlásit.',
           ),
           const _P(
+            'Odeslanou zprávu ISDS obvykle do několika vteřin dodá adresátovi, teprve '
+            'pak se dá stáhnout. Datovka se po odeslání několikrát podívá znovu, takže '
+            'zpráva bývá v Odeslaných do minuty. Vypnout jde v Nastavení → Stahování.',
+          ),
+          const _P(
+            'Pravým tlačítkem na schránku (na telefonu podržením) ji přejmenujete, '
+            'přihlásíte nebo odeberete. Odebraná schránka zmizí ze seznamu, archiv '
+            'jejích zpráv zůstane.',
+          ),
+          const _P(
             'Otevřením se zpráva označí jako přečtená. Podepsaný originál (ZFO) uložíte '
             'ikonou stažení. To je doklad pro úřad. Hledání je bez diakritiky, ⌘F '
             'skočí do pole. Šipky posouvají výběr, ⌘-klik a Shift-klik vyberou víc zpráv.',
@@ -95,11 +105,12 @@ class HelpView extends StatelessWidget {
           const _H('Aktualizace'),
           const _P(
             'Aplikace se při startu podívá na vydání intiocz/datovka-ng, jestli není '
-            'novější verze. Na Macu se '
-            'balíček vymění a stažený soubor se smaže. Na Linuxu se nainstaluje balíček '
-            '.deb a taky se smaže. Na Windows 10 a novějším se složka s programem přepíše a zip '
-            'se smaže. Na iPhonu se jen otevře stránka vydání, systém '
-            'nedovolí aplikaci vyměnit samu sebe.',
+            'novější verze, a nabídne ji se seznamem změn. Ručně to zkontrolujete '
+            'kliknutím na číslo verze dole. Na Macu se balíček vymění a stažený soubor '
+            'se smaže. Na Linuxu se nainstaluje balíček .deb (pro Intel, nebo ARM podle '
+            'počítače) a systém se zeptá na heslo správce. Na Windows 10 a novějším se '
+            'složka s programem přepíše a zip se smaže. Na iPhonu a Androidu se jen '
+            'otevře stránka vydání.',
           ),
           const _H('Kdo to platí'),
           const _P(
