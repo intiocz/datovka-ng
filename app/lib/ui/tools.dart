@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 
 import 'dart:io';
@@ -154,8 +155,9 @@ class ToolsMenu extends StatelessWidget {
             mimeTypes: ['application/zip'],
             uniformTypeIdentifiers: ['public.zip-archive'],
           );
-          final f = await openFile(acceptedTypeGroups: [backup]);
-          final dir = f?.path;
+          final dir = Platform.isAndroid
+              ? await _pickBackupAndroid(s.tempPath('obnova.zip'))
+              : (await openFile(acceptedTypeGroups: [backup]))?.path;
           if (dir == null || !context.mounted) return;
           final ok = await showDialog<bool>(
             context: context,
@@ -178,9 +180,27 @@ class ToolsMenu extends StatelessWidget {
             ),
           );
           if (ok == true) say(await s.restore(dir));
+          // The copy made on Android is not needed any more.
+          if (Platform.isAndroid) await File(dir).delete().catchError((_) => File(dir));
       }
     } on Object catch (e) {
       say('$e');
     }
   }
+}
+
+/// The backup ZIP on Android, copied piece by piece into [target]: the
+/// file_selector plugin reads a whole file into memory, which a large archive
+/// does not fit.
+Future<String?> _pickBackupAndroid(String? target) async {
+  if (target == null) return null;
+  final f = await FilePicker.pickFile(
+    type: FileType.custom,
+    allowedExtensions: ['zip'],
+  );
+  if (f == null) return null;
+  final out = File(target).openWrite();
+  await out.addStream(f.readAsByteStream());
+  await out.close();
+  return target;
 }
