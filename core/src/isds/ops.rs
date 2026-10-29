@@ -163,8 +163,8 @@ fn pdz_send_info_body(box_id: &str, kind: &str) -> String {
 }
 
 /// Namespace and path of the password service for OTP logins.
-const ASWS_NS: &str = "http://isds.czechpoint.cz/v20/asws";
-const ASWS_PATH: &str = "asws/changePassword";
+pub(super) const ASWS_NS: &str = "http://isds.czechpoint.cz/v20/asws";
+pub(super) const ASWS_PATH: &str = "asws/changePassword";
 
 /// Second factor of a password change for a box logging in with a code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,7 +175,7 @@ pub enum Otp {
     App,
 }
 
-fn change_password_otp_body(old: &str, new: &str, otp: Otp) -> String {
+pub(super) fn change_password_otp_body(old: &str, new: &str, otp: Otp) -> String {
     format!(
         "<isds:dbOldPassword>{}</isds:dbOldPassword><isds:dbNewPassword>{}</isds:dbNewPassword><isds:dbOTPType>{}</isds:dbOTPType>",
         escape(old),
@@ -261,6 +261,8 @@ pub(crate) fn user_info_xml(user: &Value) -> String {
             }
             Some(Value::Number(n)) => out += &format!("<isds:{f}>{n}</isds:{f}>"),
             Some(Value::Bool(b)) => out += &format!("<isds:{f}>{b}</isds:{f}>"),
+            // The only element that may not be nil; ISDS sets it itself.
+            _ if *f == "aifoIsds" => out += "<isds:aifoIsds>false</isds:aifoIsds>",
             _ => out += &format!(r#"<isds:{f} xsi:nil="true"/>"#),
         }
     }
