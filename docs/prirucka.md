@@ -84,6 +84,15 @@ a neposílá opakovaná upozornění.
 U odpovědi se automaticky vyplní adresát, věc s předponou „Re:“ a prohozená
 čísla jednací.
 
+Po přidání adresáta se aplikace ISDS zeptá, jestli jeho schránka může
+přijímat zprávy. Nepřístupnou schránku (znepřístupněnou, zrušenou) označí
+a zprávu do ní neodešle. Typy poštovní zprávy v *Dalších volbách* nabízí,
+jen když je ISDS z vaší schránky danému adresátovi dovolí.
+
+Běžná zpráva více adresátům se odešle najednou, každý adresát dostane svou
+zprávu se svým ID. Komu ISDS takovou zprávu nevezme (např. adresátovi, kterému
+lze psát jen poštovní zprávou), tomu se zpráva pošle samostatně.
+
 ## Adresář schránek
 
 Nahoře jsou *Moje kontakty*: všichni, se kterými máte přijaté nebo odeslané
@@ -108,7 +117,7 @@ případně první schránkou s uloženým heslem.
   odpovědět, přeposlat, použít jako šablonu; Označit (přečtené, nevyřízeno,
   vyřizuje se, vyřízeno); lhůta, štítek, poznámka; Uložit (ZFO zprávy
   i doručenky, obálka a doručenka do PDF, všechny přílohy); otevřít ZFO
-  v jiné aplikaci; poslat e-mailem; ISDS (ověřit, kdo odeslal, doručenka
+  v jiné aplikaci; poslat e-mailem; ISDS (ověřit, tedy ISDS posoudí celý uložený originál ZFO; kdo odeslal, doručenka
   a události, obnovit razítko, stáhnout znovu); smazat jen v počítači nebo
   v ISDS. Smazání v ISDS nechá podepsaný originál v archivu, smazání
   v počítači ho odstraní, ale do vymazání v ISDS jde zprávu stáhnout znovu.
@@ -123,7 +132,9 @@ případně první schránkou s uloženým heslem.
 - **Koncepty**: složka Koncepty; rozepsanou zprávu uložíte tlačítkem *Uložit koncept*.
 - **Schránky**: pravým tlačítkem na schránku – informace o schránce (vlastník,
   uživatelé, kredit, datový trezor, heslo a jeho změna), přihlásit/odhlásit,
-  posunout, odebrat. Pořadí změníte i přetažením.
+  posunout, odebrat. Pořadí změníte i přetažením. Schránka s přihlášením přes
+  SMS nebo bezpečnostní kód potřebuje ke změně hesla i kód: tlačítko
+  *Poslat SMS* si ho vyžádá (zadejte nejdřív současné heslo).
 - **Nástroje** (⋮ vlevo dole): ověřit soubor ZFO, importovat ZFO (nebo je
   přetáhněte do okna), přehled korespondence do CSV, záloha a obnova,
   AI asistent, nastavení.

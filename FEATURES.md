@@ -19,7 +19,7 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Testovací prostředí | 🧪 | |
 | Upozornění na konec platnosti hesla | 🧪 | |
 | Změna hesla | 🧪 | uložené heslo se aktualizuje |
-| Změna hesla v režimu OTP | ⬜ | `asws/changePassword` |
+| Změna hesla v režimu OTP (SMS, kód z aplikace) | 🧪 | `ChangePasswordOTP`, `SendSMSCode` na `asws/changePassword` |
 | Hesla šifrovaná PINem | ✅ | PBKDF2 + AES-256-CBC jako originál |
 | Informace o vlastníkovi a uživateli | 🧪 | |
 | Uživatelé schránky – výpis | 🧪 | |
@@ -34,8 +34,8 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Podepsané ZFO, doručenky, události | ✅ | |
 | Přečtení (lokálně, volitelně i v ISDS) | ✅ | |
 | Automatické stahování, stahování po spuštění | ✅ | nastavení ⌘, |
-| Ověření zprávy v ISDS (otisk) | 🧪 | `VerifyMessage` |
-| Ověření souboru ZFO v ISDS | 🧪 | `AuthenticateMessage` |
+| Ověření zprávy v ISDS | 🧪 | uložené ZFO přes `AuthenticateMessage` (VoDZ `AuthenticateBigMessage`); zastaralá `VerifyMessage` se už nevolá |
+| Ověření souboru ZFO v ISDS | 🧪 | `AuthenticateMessage`, u VoDZ `AuthenticateBigMessage` |
 | Lokální ověření podpisu a časového razítka | ✅ | ověřeno na vzorových i tvých zprávách |
 | Autor zprávy | 🧪 | `GetMessageAuthor2` |
 | Smazání zprávy v ISDS | 🧪 | originál zůstane v archivu |
@@ -57,8 +57,9 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 |---|---|---|
 | Nová zpráva, odpověď, přeposlání | 🧪 | `CreateMessage` |
 | Přílohy včetně přetažení z plochy | ✅ | |
-| Více adresátů | 🧪 | jedna zpráva na adresáta |
-| Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | |
+| Více adresátů | 🧪 | `CreateMultipleMessage` (po 50); komu ISDS v ní zprávu nevytvoří (např. jen poštovní zprávou), tomu samostatně `CreateMessage`; VoDZ a poštovní typy po jednom |
+| Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | typy nabízí jen když je ISDS dovolí (`PDZSendInfo` Normal/Init) |
+| Kontrola přístupnosti adresáta | 🧪 | `CheckDataBox` po přidání adresáta, do nepřístupné schránky neodešle |
 | K rukám, do vlastních rukou, fikce, zmocnění, zveřejnění identity | 🧪 | |
 | Koncepty | ✅ | sdílené |
 | Kontakty z korespondence | ✅ | automaticky, podle četnosti, v Adresáři i při psaní |
@@ -70,7 +71,8 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 |---|---|---|
 | Hledání ve zprávách bez diakritiky | ✅ | |
 | Pokročilé hledání (datum, nepřečtené, lhůta, štítek) | ✅ | |
-| Adresář schránek – název, adresa, IČO, ID | ✅ | `ISDSSearch2` |
+| Adresář schránek – název, adresa, IČO, ID | 🧪 | `ISDSSearch3` (dříve `ISDSSearch2`); v jádře i hledání podle IdOVM |
+| Adresa schránky po složkách | ⬜ | `GetDataBoxAddress` zatím není potřeba, hledání vrací složenou adresu |
 | Kredit, poštovní zprávy, datový trezor | 🧪 | |
 
 ## Archiv a soubory
