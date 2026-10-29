@@ -46,6 +46,39 @@ jobs:
           name: DATOVKA-linux-x64
           path: DATOVKA-linux-x64.tar.gz
 
+  # The ARM package; GitHub only, Gitea has no ARM runner.
+  linux-arm:
+    runs-on: ubuntu-24.04-arm
+    if: github.server_url == 'https://github.com'
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+      - uses: dtolnay/rust-toolchain@stable
+      # Flutter publishes no Linux ARM archive; from git it fetches its own ARM tools.
+      - name: Flutter
+        run: |
+          git clone --depth 1 -b stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Rust core
+        run: cargo build --release -p datovka-ffi
+      - name: Flutter app
+        working-directory: app
+        run: flutter build linux --release
+      - name: Package
+        run: |
+          bundle=app/build/linux/arm64/release/bundle
+          cp target/release/libdatovka_ffi.so "$bundle/lib/"
+          ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
+          sh scripts/package-deb.sh "$bundle" "$ver" DatovkaNG-linux-arm64.deb arm64
+          dpkg-deb -f DatovkaNG-linux-arm64.deb Architecture | grep -x arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DatovkaNG-linux-arm64
+          path: DatovkaNG-linux-arm64.deb
+
   windows:
     runs-on: windows-latest
     steps:
