@@ -5,6 +5,10 @@ Seznam vychází z jejího zdrojového kódu.
 
 Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 
+Všechny požadavky na ISDS se v testech kontrolují proti oficiálním XSD.
+Čtecí operace jsou ověřené na ostrém ISDS (`core/tests/production.rs`,
+29. 10. 2026). Co v ISDS něco mění, čeká na testovací prostředí.
+
 ## Účty a přihlášení
 
 | Funkce | Stav | Pozn. |
@@ -17,12 +21,12 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Heslo + kód z aplikace (HOTP) | 🧪 | `type=hotp` |
 | Certifikát, certifikát + heslo | 🧪 | PKCS#12, `ws1c` `certds/`/`hspis/`; ne na Androidu |
 | Testovací prostředí | 🧪 | |
-| Upozornění na konec platnosti hesla | 🧪 | |
+| Upozornění na konec platnosti hesla | ✅ | `GetPasswordInfo` ověřeno na ostrém ISDS |
 | Změna hesla | 🧪 | uložené heslo se aktualizuje |
 | Změna hesla v režimu OTP (SMS, kód z aplikace) | 🧪 | `ChangePasswordOTP`, `SendSMSCode` na `asws/changePassword` |
 | Hesla šifrovaná PINem | ✅ | PBKDF2 + AES-256-CBC jako originál |
-| Informace o vlastníkovi a uživateli | 🧪 | |
-| Uživatelé schránky – výpis | 🧪 | |
+| Informace o vlastníkovi a uživateli | ✅ | `GetOwnerInfoFromLogin2`, `GetUserInfoFromLogin2` |
+| Uživatelé schránky – výpis | ✅ | `GetDataBoxUsers2` |
 | Uživatelé schránky – přidání, oprávnění, odebrání | 🧪 | |
 | Proxy | ✅ | systémová nebo ruční v Nastavení |
 
@@ -34,10 +38,10 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Podepsané ZFO, doručenky, události | ✅ | |
 | Přečtení (lokálně, volitelně i v ISDS) | ✅ | |
 | Automatické stahování, stahování po spuštění | ✅ | nastavení ⌘, |
-| Ověření zprávy v ISDS | 🧪 | uložené ZFO přes `AuthenticateMessage` (VoDZ `AuthenticateBigMessage`); zastaralá `VerifyMessage` se už nevolá |
-| Ověření souboru ZFO v ISDS | 🧪 | `AuthenticateMessage`, u VoDZ `AuthenticateBigMessage` |
+| Ověření zprávy v ISDS | ✅ | uložené ZFO přes `AuthenticateMessage`; u VoDZ `AuthenticateBigMessage` 🧪; zastaralá `VerifyMessage` se už nevolá |
+| Ověření souboru ZFO v ISDS | ✅ | `AuthenticateMessage`, u VoDZ `AuthenticateBigMessage` 🧪 |
 | Lokální ověření podpisu a časového razítka | ✅ | ověřeno na vzorových i tvých zprávách |
-| Autor zprávy | 🧪 | `GetMessageAuthor2` |
+| Autor zprávy | ✅ | `GetMessageAuthor2` |
 | Smazání zprávy v ISDS | 🧪 | originál zůstane v archivu |
 | Smazání zprávy jen v počítači | ✅ | jako originál, i s certifikáty |
 | Stav vyřízení (nevyřízeno, vyřizuje se, vyřízeno) | ✅ | `process_state`, sdílený s originálem |
@@ -46,7 +50,7 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Otevřít ZFO v jiné aplikaci, poslat e-mailem (ZFO, přílohy, obojí) | ✅ | |
 | Stáhnout zprávu znovu z ISDS | 🧪 | stará kopie se nahradí až po stažení |
 | Hlídání expirace časových razítek | ✅ | Nástroje → Časová razítka, s obnovou; výsledky v `datovka-doplnky.db` |
-| Seznam smazaných zpráv | 🧪 | Informace o schránce |
+| Seznam smazaných zpráv | ✅ | Informace o schránce, `GetListOfErasedMessages` |
 | Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB |
 | Štítky (`tag.db`) | ✅ | |
 | Lhůty | ✅ | nová funkce, sdílené |
@@ -60,7 +64,7 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Přílohy včetně přetažení z plochy | ✅ | |
 | Více adresátů | 🧪 | `CreateMultipleMessage` (po 50); komu ISDS v ní zprávu nevytvoří (např. jen poštovní zprávou), tomu samostatně `CreateMessage`; VoDZ a poštovní typy po jednom |
 | Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | typy nabízí jen když je ISDS dovolí (`PDZSendInfo` Normal/Init) |
-| Kontrola přístupnosti adresáta | 🧪 | `CheckDataBox` po přidání adresáta, do nepřístupné schránky neodešle |
+| Kontrola přístupnosti adresáta | ✅ | `CheckDataBox` po přidání adresáta, do nepřístupné schránky neodešle |
 | K rukám, do vlastních rukou, fikce, zmocnění, zveřejnění identity | 🧪 | |
 | Koncepty | ✅ | sdílené |
 | Kontakty z korespondence | ✅ | automaticky, podle četnosti, v Adresáři i při psaní |
@@ -72,9 +76,9 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 |---|---|---|
 | Hledání ve zprávách bez diakritiky | ✅ | |
 | Pokročilé hledání (datum, nepřečtené, lhůta, štítek) | ✅ | |
-| Adresář schránek – název, adresa, IČO, ID | 🧪 | `ISDSSearch3` (dříve `ISDSSearch2`); v jádře i hledání podle IdOVM |
+| Adresář schránek – název, adresa, IČO, ID | ✅ | `ISDSSearch3` (dříve `ISDSSearch2`); v jádře i hledání podle IdOVM |
 | Adresa schránky po složkách | ⬜ | `GetDataBoxAddress` zatím není potřeba, hledání vrací složenou adresu |
-| Kredit, poštovní zprávy, datový trezor | 🧪 | |
+| Kredit, poštovní zprávy, datový trezor | ✅ | `DataBoxCreditInfo`, `PDZInfo`, `PDZSendInfo`, `DTInfo` |
 
 ## Archiv a soubory
 
