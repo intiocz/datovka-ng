@@ -53,7 +53,8 @@ na testovací prostředí.
 | Stáhnout zprávu znovu z ISDS | 🧪 | stará kopie se nahradí až po stažení |
 | Hlídání expirace časových razítek | ✅ | Nástroje → Časová razítka, s obnovou; výsledky v `datovka-doplnky.db` |
 | Seznam smazaných zpráv | ✅ | Informace o schránce, `GetListOfErasedMessages` |
-| Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB |
+| Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB; originál a přílohy v souborech vedle databáze jako původní Datovka |
+| Databáze schránky v jiné složce (`database_dir`) | 🧪 | jako původní Datovka, i v záloze |
 | Štítky (`tag.db`) | ✅ | |
 | Lhůty | ✅ | nová funkce, sdílené |
 | Integrovaný prohlížeč PDF | ✅ | |
