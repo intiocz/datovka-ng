@@ -7,11 +7,13 @@ cd "$root/app"
 # Documents is synced by iCloud, which tags files with extended attributes that
 # codesign rejects. Keep build output outside the synced folder.
 out="$HOME/Library/Caches/datovka-build"
+# macOS empties Caches when the disk runs low; the links then point nowhere.
+mkdir -p "$out"
 if [ ! -L build ]; then
   rm -rf build
-  mkdir -p "$out"
   ln -s "$out" build
 fi
+[ -L .dart_tool ] && mkdir -p "$(readlink .dart_tool)"
 flutter build macos --release
 app="$root/app/build/macos/Build/Products/Release/datovka-ng.app"
 mkdir -p "$app/Contents/Frameworks"

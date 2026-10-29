@@ -712,7 +712,12 @@ class _SyncFooter extends StatelessWidget {
           Row(
             children: [
               Icon(
-                state.foreignLock == null ? Icons.cloud_done_outlined : Icons.lock_outline,
+                state.foreignLock != null
+                    ? Icons.lock_outline
+                    // A cloud only when the archive really is in iCloud Drive.
+                    : sync.storageName == 'iCloud Drive'
+                    ? Icons.cloud_done_outlined
+                    : Icons.check_circle_outline,
                 size: 18,
                 color: state.foreignLock == null ? t.ok : t.warn,
               ),
