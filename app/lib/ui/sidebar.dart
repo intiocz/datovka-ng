@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/app_state.dart';
@@ -26,6 +27,9 @@ class Sidebar extends StatelessWidget {
       onPicked?.call();
     }
 
+    final phone =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
     void pickFolder(Folder f) {
       s.selectFolder(f);
       onPicked?.call();
@@ -168,30 +172,46 @@ class Sidebar extends StatelessWidget {
                     unread: s.unreadIn(null),
                     onTap: () => pickBox(null),
                   ),
-                  // Drag a box to change the order; saved like the original app.
-                  ReorderableListView(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    buildDefaultDragHandles: false,
-                    onReorderItem: s.moveBox,
-                    children: [
-                      for (final (i, b) in s.boxes.indexed)
-                        ReorderableDragStartListener(
-                          key: ValueKey(b.id),
-                          index: i,
-                          child: _BoxItem(
-                            title: b.name,
-                            tooltip:
-                                '${b.kind}, ID ${b.isdsId ?? b.id}, ${b.login.label}. Přetažením změníte pořadí.',
-                            selected: s.boxId == b.id,
-                            unread: s.unreadIn(b.id),
-                            needsLogin: !b.canSyncUnattended,
-                            onTap: () => pickBox(b.id),
-                            onMenu: (pos) => _boxMenu(context, pos, b),
+                  // A computer drags boxes to change the order, saved like the
+                  // original app. On a phone dragging fights with scrolling, so
+                  // the boxes are just in alphabetical order there.
+                  if (phone)
+                    for (final b in [...s.boxes]..sort(
+                      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                    ))
+                      _BoxItem(
+                        title: b.name,
+                        tooltip: '${b.kind}, ID ${b.isdsId ?? b.id}, ${b.login.label}.',
+                        selected: s.boxId == b.id,
+                        unread: s.unreadIn(b.id),
+                        needsLogin: !b.canSyncUnattended,
+                        onTap: () => pickBox(b.id),
+                        onMenu: (pos) => _boxMenu(context, pos, b),
+                      )
+                  else
+                    ReorderableListView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      buildDefaultDragHandles: false,
+                      onReorderItem: s.moveBox,
+                      children: [
+                        for (final (i, b) in s.boxes.indexed)
+                          ReorderableDragStartListener(
+                            key: ValueKey(b.id),
+                            index: i,
+                            child: _BoxItem(
+                              title: b.name,
+                              tooltip:
+                                  '${b.kind}, ID ${b.isdsId ?? b.id}, ${b.login.label}. Přetažením změníte pořadí.',
+                              selected: s.boxId == b.id,
+                              unread: s.unreadIn(b.id),
+                              needsLogin: !b.canSyncUnattended,
+                              onTap: () => pickBox(b.id),
+                              onMenu: (pos) => _boxMenu(context, pos, b),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -204,7 +224,6 @@ class Sidebar extends StatelessWidget {
   }
 }
 
-/// App mark: a folded envelope corner, drawn rather than an icon font glyph.
 /// The app logo as in `branding/web/favicon.svg`: the yellow mark (two
 /// arrows in a frame) on a blue rounded tile.
 class _Mark extends StatelessWidget {

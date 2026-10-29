@@ -13,6 +13,7 @@ import 'package:datovka/ui/message_list.dart';
 import 'package:datovka/ui/settings_dialog.dart';
 import 'package:datovka/ui/sidebar.dart';
 import 'package:datovka/data/app_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -530,5 +531,31 @@ void main() {
     );
     expect(at(400).renewable, isTrue);
     expect(at(600).renewable, isFalse);
+  });
+
+  testWidgets('a phone lists the boxes alphabetically, without dragging', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = _sample();
+    await tester.pumpWidget(DatovkaApp(state: state));
+    expect(find.byType(ReorderableListView), findsNothing);
+    final names = [for (final b in state.boxes) b.name]
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final ys = [
+      for (final n in names)
+        tester
+            .getTopLeft(
+              find.descendant(of: find.byType(Sidebar), matching: find.text(n)),
+            )
+            .dy,
+    ];
+    expect(ys, [...ys]..sort());
+    debugDefaultTargetPlatformOverride = null;
   });
 }
