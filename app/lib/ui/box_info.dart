@@ -307,6 +307,7 @@ class _PasswordTabState extends State<_PasswordTab> {
   final _old = TextEditingController();
   final _new = TextEditingController();
   final _again = TextEditingController();
+  final _code = TextEditingController();
   Future<dynamic>? _expiry;
   String? _message;
   var _ok = false;
@@ -323,7 +324,36 @@ class _PasswordTabState extends State<_PasswordTab> {
     _old.dispose();
     _new.dispose();
     _again.dispose();
+    _code.dispose();
     super.dispose();
+  }
+
+  /// The box logs in with password and SMS code.
+  bool get _sms => widget.box.login == LoginMethod.passwordSms;
+
+  /// The password change needs a one-time code too (SMS or app).
+  bool get _withCode => _sms || widget.box.login == LoginMethod.passwordOtp;
+
+  Future<void> _sendSms(AppState s) async {
+    if (_old.text.isEmpty) {
+      setState(() => _message = 'Nejdřív zadejte současné heslo.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _message = null;
+      _ok = false;
+    });
+    try {
+      await s.op(widget.box, 'send_sms_code', {'old': _old.text});
+      setState(() {
+        _ok = true;
+        _message = 'SMS s kódem je na cestě.';
+      });
+    } on Object catch (e) {
+      setState(() => _message = '$e');
+    }
+    setState(() => _busy = false);
   }
 
   Future<void> _change(AppState s) async {
@@ -335,14 +365,24 @@ class _PasswordTabState extends State<_PasswordTab> {
       setState(() => _message = 'Nové heslo musí mít aspoň 8 znaků.');
       return;
     }
+    if (_withCode && _code.text.trim().isEmpty) {
+      setState(
+        () => _message = _sms
+            ? 'Nechte si poslat SMS a opište z ní kód.'
+            : 'Zadejte bezpečnostní kód.',
+      );
+      return;
+    }
     setState(() {
       _busy = true;
       _message = null;
+      _ok = false;
     });
     try {
       await s.op(widget.box, 'change_password', {
         'old': _old.text,
         'new': _new.text,
+        if (_withCode) 'code': _code.text.trim(),
       });
       setState(() {
         _ok = true;
@@ -417,6 +457,29 @@ class _PasswordTabState extends State<_PasswordTab> {
                     labelText: 'Nové heslo znovu',
                   ),
                 ),
+                if (_withCode) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _code,
+                          decoration: InputDecoration(
+                            labelText: _sms ? 'Kód z SMS' : 'Bezpečnostní kód',
+                          ),
+                        ),
+                      ),
+                      if (_sms) ...[
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: _busy ? null : () => _sendSms(s),
+                          child: const Text('Poslat SMS'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
