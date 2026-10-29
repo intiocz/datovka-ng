@@ -41,7 +41,8 @@ Future<void> showSearchFilter(BuildContext context) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Doručeno', style: text.bodySmall),
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton(
                       onPressed: () async {

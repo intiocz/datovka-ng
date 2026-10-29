@@ -511,25 +511,52 @@ class _Facts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Column(
-      children: [
-        for (final (k, v) in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(width: 150, child: Text(k, style: text.bodySmall)),
-                Expanded(
-                  child: SelectableText(
-                    v,
-                    style: text.bodyMedium?.copyWith(fontFeatures: tabular),
-                  ),
+    // On a phone the label goes above the value, as in InfoView.
+    return LayoutBuilder(
+      builder: (context, c) {
+        final narrow = c.maxWidth < 440;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (k, v) in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Flex(
+                  direction: narrow ? Axis.vertical : Axis.horizontal,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (narrow)
+                      Text(
+                        k,
+                        style: text.bodySmall?.copyWith(
+                          color: Tokens.of(context).inkMuted,
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: 150,
+                        child: Text(k, style: text.bodySmall),
+                      ),
+                    if (narrow)
+                      SelectableText(
+                        v,
+                        style: text.bodyMedium?.copyWith(fontFeatures: tabular),
+                      )
+                    else
+                      Expanded(
+                        child: SelectableText(
+                          v,
+                          style: text.bodyMedium?.copyWith(
+                            fontFeatures: tabular,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 }

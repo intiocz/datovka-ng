@@ -75,10 +75,11 @@ class _StampsDialogState extends State<_StampsDialog> {
               style: text.bodySmall,
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text('Razítka, která vyprší', style: text.bodyMedium),
-                const SizedBox(width: 8),
                 DropdownButton<int>(
                   value: _days,
                   underline: const SizedBox(),

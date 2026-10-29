@@ -220,17 +220,33 @@ class _GovServicesState extends State<_GovServices> {
       for (final g in govServices)
         if (g.canSend(type) && g.name.toLowerCase().contains(q)) g,
     ];
+    // A phone shows the list, or the chosen service with a way back.
+    final screen = MediaQuery.sizeOf(context);
+    final narrow = screen.width < 720;
     return Dialog(
+      insetPadding: narrow
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       child: SizedBox(
         width: 880,
-        height: 600,
+        height: narrow ? screen.height * 0.85 : 600,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 12, 8),
+              padding: EdgeInsets.fromLTRB(narrow ? 8 : 24, 20, 12, 8),
               child: Row(
                 children: [
+                  if (narrow && _service != null)
+                    IconButton(
+                      tooltip: 'Zpět na seznam',
+                      onPressed: _sending
+                          ? null
+                          : () => setState(() => _service = null),
+                      icon: const Icon(Icons.arrow_back),
+                    )
+                  else if (narrow)
+                    const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       'Elektronická podání',
@@ -257,6 +273,10 @@ class _GovServicesState extends State<_GovServices> {
                         ),
                       ),
                     )
+                  : narrow
+                  ? (_service == null
+                        ? _list(boxes, services, t, text)
+                        : _form(t, text))
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -393,15 +413,16 @@ class _GovServicesState extends State<_GovServices> {
             child: Text(_error!, style: TextStyle(color: t.danger)),
           ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             TextButton.icon(
               onPressed: _complete && !_sending ? _preview : null,
               icon: const Icon(Icons.code, size: 18),
               label: const Text('Náhled přílohy'),
             ),
-            const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _complete && !_sending && _box != null ? _send : null,
               icon: _sending

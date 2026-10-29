@@ -689,31 +689,41 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Tokens.of(context);
     final text = Theme.of(context).textTheme;
+    final label = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title, style: text.bodyMedium),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(subtitle!, style: text.bodySmall?.copyWith(color: t.inkMuted)),
+        ],
+      ],
+    );
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 56),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title, style: text.bodyMedium),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: text.bodySmall?.copyWith(color: t.inkMuted),
+        // A small phone puts the control under the text.
+        child: LayoutBuilder(
+          builder: (context, c) => c.maxWidth < 320
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    label,
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(fit: BoxFit.scaleDown, child: trailing),
                     ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            trailing,
-          ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: label),
+                    const SizedBox(width: 16),
+                    trailing,
+                  ],
+                ),
         ),
       ),
     );

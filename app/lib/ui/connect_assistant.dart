@@ -293,9 +293,10 @@ class _KindCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Tokens.of(context);
     final text = Theme.of(context).textTheme;
-    return SizedBox(
-      width: 132,
-      height: 118,
+    // Grows with longer text (a narrow screen, a larger font) instead of
+    // cutting it off.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 132, maxWidth: 132, minHeight: 118),
       child: Material(
         color: selected ? t.accentSoft : t.surface,
         shape: RoundedRectangleBorder(
@@ -308,10 +309,11 @@ class _KindCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(card.icon, size: 20, color: selected ? t.accent : t.inkMuted),
-                const Spacer(),
+                const SizedBox(height: 14),
                 Text(
                   card.title,
                   style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),

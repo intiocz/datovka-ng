@@ -119,9 +119,14 @@ class _RecordsSettingsDialogState extends State<_RecordsSettingsDialog> {
             const SizedBox(height: 12),
             Row(
               children: [
-                OutlinedButton(
-                  onPressed: _busy ? null : _test,
-                  child: const Text('Uložit a otestovat spojení'),
+                Flexible(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _test,
+                    child: const Text(
+                      'Uložit a otestovat spojení',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
                 if (_busy) ...[
                   const SizedBox(width: 12),

@@ -436,12 +436,16 @@ class _ComposeState extends State<_Compose> {
         else
           DropdownButtonFormField<DataBox>(
             initialValue: _from,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Od'),
             items: [
               for (final b in boxes)
                 DropdownMenuItem(
                   value: b,
-                  child: Text('${b.name} (${b.isdsId ?? b.id})'),
+                  child: Text(
+                    '${b.name} (${b.isdsId ?? b.id})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: (b) {
@@ -667,10 +671,18 @@ class _ComposeState extends State<_Compose> {
           widget.draft.subject.startsWith('Re: ') ? 'Odpověď' : 'Nová zpráva',
         ),
         actions: [
-          TextButton(
-            onPressed: _sending ? null : _saveDraft,
-            child: const Text('Uložit koncept'),
-          ),
+          // A phone has room for an icon only.
+          if (MediaQuery.sizeOf(context).width < 480)
+            IconButton(
+              tooltip: 'Uložit koncept',
+              onPressed: _sending ? null : _saveDraft,
+              icon: const Icon(Icons.save_outlined),
+            )
+          else
+            TextButton(
+              onPressed: _sending ? null : _saveDraft,
+              child: const Text('Uložit koncept'),
+            ),
           const SizedBox(width: 4),
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -878,7 +890,9 @@ class _Check extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Flexible(
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        ),
       ],
     ),
   );
