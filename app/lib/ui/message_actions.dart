@@ -14,6 +14,7 @@ import 'compose.dart';
 import 'envelope_pdf.dart';
 import 'format.dart';
 import 'info_view.dart';
+import 'message_author.dart';
 import 'records_dialog.dart';
 
 enum _Action {
@@ -236,8 +237,8 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
         builder: (d) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InfoView(data: d),
-            const SizedBox(height: 16),
+            MessageAuthorView(data: d),
+            const SizedBox(height: 6),
             Text(
               'Jméno a další údaje ISDS ukáže jen tehdy, když je odesílatel '
               'při odeslání zveřejnil. Jinak je známá jen jeho role ve schránce.',
@@ -260,27 +261,23 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Time above the text: the descriptions are long and a
+              // side column leaves them a narrow strip on a phone.
               for (final e in events)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 150,
-                        child: Text(
-                          _time('${e['time']}'),
-                          style: text.bodySmall?.copyWith(
-                            fontFeatures: tabular,
-                          ),
+                      Text(
+                        _time('${e['time']}'),
+                        style: text.bodySmall?.copyWith(
+                          fontFeatures: tabular,
+                          color: Tokens.of(context).inkMuted,
                         ),
                       ),
-                      Expanded(
-                        child: Text(
-                          '${e['description']}',
-                          style: text.bodyMedium,
-                        ),
-                      ),
+                      const SizedBox(height: 2),
+                      Text('${e['description']}', style: text.bodyMedium),
                     ],
                   ),
                 ),
