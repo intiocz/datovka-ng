@@ -97,17 +97,19 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Funkce | Stav | Pozn. |
 |---|---|---|
 | AI asistent: termíny z příloh, lhůta, kalendář (ICS) | 🧪 | Claude API nebo lokální Claude Code; na iPhonu API klíč a zápis přímo do Kalendáře |
-| Zamykání aplikace Face ID / kódem (iPhone) | 🧪 | Nastavení → Zámek |
+| Zamykání aplikace biometrikou nebo kódem telefonu (iPhone, Android) | 🧪 | Nastavení → Zámek, jen v telefonu |
+| Automatická aktualizace z vydání na GitHubu | ✅ | Mac a Windows vyzkoušené (1.0.1 → 1.0.2); Linux `.deb` 🧪; iPhone jen otevře stránku vydání |
 | Procházení po letech a měsících | ✅ | strom ve složkách vlevo |
 
 ## Platformy
 
 | Platforma | Stav |
 |---|---|
-| macOS | ✅ instalátor `dist/DatovkaNG.dmg` |
-| Windows, Linux | ⬜ sestavení na dané platformě nebo v CI |
-| iOS | 🧪 ověřeno v simulátoru nad skutečnými daty; na iPhone podepsat v Xcode |
-| Android | 🧪 APK `dist/DATOVKA.apk` (arm64, x86_64); iCloud na Androidu není |
+| macOS | ✅ `DatovkaNG-macos.zip` z vydání, aktualizuje se sám |
+| Windows | ✅ `DatovkaNG-windows-amd64.zip` z vydání, vyzkoušeno ve Windows 11, aktualizuje se sám |
+| Linux | 🧪 `DatovkaNG-linux-amd64.deb` z vydání; v CI se sestaví a zabalí, na skutečném počítači zatím nevyzkoušeno |
+| iOS | 🧪 běží na iPhonu nad archivem z iCloud Drive; podepisuje se v Xcode, v App Store není |
+| Android | 🧪 podepsané `DatovkaNG-android.apk` z vydání (arm64); archiv se přenáší zálohou ZIP, iCloud na Androidu není |
 
 ## Chování
 
