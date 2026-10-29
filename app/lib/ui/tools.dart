@@ -13,6 +13,7 @@ import 'help_view.dart';
 import 'gov_services_dialog.dart';
 import 'records_dialog.dart';
 import 'settings_dialog.dart';
+import 'stamps_dialog.dart';
 import 'signature_view.dart';
 
 enum _Tool {
@@ -22,6 +23,7 @@ enum _Tool {
   mobile,
   overview,
   govServices,
+  stamps,
   backup,
   restore,
   ai,
@@ -65,6 +67,7 @@ class ToolsMenu extends StatelessWidget {
           value: _Tool.govServices,
           child: Text('Elektronická podání (Czech POINT)…'),
         ),
+        PopupMenuItem(value: _Tool.stamps, child: Text('Časová razítka…')),
         PopupMenuDivider(),
         PopupMenuItem(value: _Tool.backup, child: Text('Zálohovat data…')),
         PopupMenuItem(value: _Tool.restore, child: Text('Obnovit ze zálohy…')),
@@ -108,6 +111,8 @@ class ToolsMenu extends StatelessWidget {
           say('Přehled uložen: ${loc.path}');
         case _Tool.govServices:
           await showGovServices(context);
+        case _Tool.stamps:
+          await showStamps(context);
         case _Tool.settings:
           await showSettings(context);
         case _Tool.ai:

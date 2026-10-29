@@ -150,6 +150,9 @@ případně první schránkou s uloženým heslem.
   uložíte do spisu z menu zprávy *Uložit do spisové služby…*.
 - **Import z mobilní Datovky** (Nástroje): vyberte složku s rozbaleným exportem
   z mobilní aplikace.
+- **Časová razítka** (Nástroje): zprávy, kterým brzy vyprší časové razítko,
+  a tím možnost prokázat originál. ISDS razítko obnoví v posledním roce
+  a půl jeho platnosti, tlačítkem Obnovit u zprávy.
 - **Podpis a časové razítko**: klikněte na zelený rámeček v detailu zprávy.
   DATOVKA ověří podpis, certifikáty i časové razítko přímo v počítači.
   *Obnovit časové razítko* v menu zprávy nechá ISDS originál znovu orazítkovat.

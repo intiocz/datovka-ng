@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS drafts (
     user_name TEXT NOT NULL,
     content TEXT NOT NULL,
     updated TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS stamps (
+    user_name TEXT NOT NULL,
+    message_id INTEGER NOT NULL,
+    expires TEXT,
+    PRIMARY KEY (user_name, message_id)
 );";
 
 #[derive(Debug, Clone, Serialize)]
@@ -318,6 +324,56 @@ impl LegacyStore {
     pub fn delete_draft(&self, _lock: &WriteLock, id: i64) -> Result<()> {
         let c = self.open_aux(EXTRA_DB, EXTRA_SCHEMA, true)?.unwrap();
         c.execute("DELETE FROM drafts WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Cached time stamp expiry per message (RFC 3339; `None` when the
+    /// message has no time stamp), see [`super::stamps`].
+    pub fn stamp_cache(&self) -> Result<std::collections::HashMap<(String, i64), Option<String>>> {
+        let mut out = std::collections::HashMap::new();
+        let Some(c) = self.open_aux(EXTRA_DB, EXTRA_SCHEMA, false)? else {
+            return Ok(out);
+        };
+        if !table_exists(&c, "stamps")? {
+            return Ok(out);
+        }
+        let mut st = c.prepare("SELECT user_name, message_id, expires FROM stamps")?;
+        let rows = st.query_map([], |r| Ok(((r.get(0)?, r.get(1)?), r.get(2)?)))?;
+        for row in rows {
+            let (k, v) = row?;
+            out.insert(k, v);
+        }
+        Ok(out)
+    }
+
+    pub fn save_stamps(&self, _lock: &WriteLock, entries: &[(String, i64, Option<String>)]) -> Result<()> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        let mut c = self.open_aux(EXTRA_DB, EXTRA_SCHEMA, true)?.unwrap();
+        let tx = c.transaction()?;
+        for (user, id, expires) in entries {
+            tx.execute(
+                "INSERT OR REPLACE INTO stamps (user_name, message_id, expires) VALUES (?1, ?2, ?3)",
+                params![user, id, expires],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Forgets the cached expiry, e.g. after the time stamp was renewed.
+    pub fn forget_stamp(&self, _lock: &WriteLock, user: &str, dm_id: i64) -> Result<()> {
+        if let Some(c) = self.open_aux(EXTRA_DB, EXTRA_SCHEMA, false)? {
+            if table_exists(&c, "stamps")? {
+                drop(c);
+                let c = self.open_aux(EXTRA_DB, EXTRA_SCHEMA, true)?.unwrap();
+                c.execute(
+                    "DELETE FROM stamps WHERE user_name = ?1 AND message_id = ?2",
+                    params![user, dm_id],
+                )?;
+            }
+        }
         Ok(())
     }
 

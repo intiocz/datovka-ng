@@ -1665,6 +1665,37 @@ class AppState extends ChangeNotifier {
 
   // Further ISDS operations (see `dk_op` in ffi/src/lib.rs).
 
+  /// Messages of all boxes whose time stamp expires within [days] (expired
+  /// ones too), soonest first. The first run checks every stored message.
+  Future<List<StampExpiry>> expiringStamps(int days) async {
+    final c = core;
+    if (c == null) return const [];
+    final out = <StampExpiry>[];
+    for (final b in boxes) {
+      final r = await c.callAsync('op', [
+        '',
+        b.username,
+        'stamps',
+        jsonEncode({'days': days, 'device': c.deviceName}),
+      ]);
+      for (final e in (r as List? ?? const [])) {
+        final m = (e as Map).cast<String, dynamic>();
+        out.add(
+          StampExpiry(
+            box: b,
+            dmId: '${m['dm_id']}',
+            expires: DateTime.parse(m['expires'] as String).toLocal(),
+            subject: m['subject'] as String? ?? '',
+            counterparty: m['counterparty'] as String? ?? '',
+            received: m['received'] as bool? ?? true,
+          ),
+        );
+      }
+    }
+    out.sort((a, b) => a.expires.compareTo(b.expires));
+    return out;
+  }
+
   /// Runs an ISDS operation for a box; throws with a readable message.
   /// An expired interactive session marks the box quietly and says so.
   Future<dynamic> op(

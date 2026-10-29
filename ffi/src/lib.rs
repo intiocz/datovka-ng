@@ -745,6 +745,17 @@ pub extern "C" fn dk_op(
                 with_lock(&|l| s.set_deadline(l, &acc.username, id, d.as_deref()))?;
                 return Ok(json!(true));
             }
+            "stamps" => {
+                let days = args.get("days").and_then(Value::as_i64).unwrap_or(365);
+                let until = chrono::Utc::now() + chrono::Duration::days(days);
+                // Remember the answers when the folder is free; read anyway.
+                let list = match lock::acquire(s.dir(), &device).map_err(e)? {
+                    lock::Acquire::Acquired(l) => s.expiring_stamps(Some(&l), &acc, until),
+                    lock::Acquire::HeldBy(_) => s.expiring_stamps(None, &acc, until),
+                }
+                .map_err(e)?;
+                return Ok(serde_json::to_value(list).map_err(e)?);
+            }
             "process_state" => {
                 let state = args.get("state").and_then(Value::as_i64).ok_or("chybí stav")?;
                 let id = dm()?;
@@ -917,7 +928,10 @@ pub extern "C" fn dk_op(
                     }
                     Err(err) => return Err(fail(err)),
                 };
-                with_lock(&|l| s.replace_zfo(l, &acc, id, &doc))?;
+                with_lock(&|l| {
+                    s.replace_zfo(l, &acc, id, &doc)?;
+                    s.forget_stamp(l, &acc.username, id)
+                })?;
                 json!({ "valid_to": valid_to })
             }
             "mark_read" => {

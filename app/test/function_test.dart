@@ -518,4 +518,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.visible.where((x) => x.dmId == m.dmId), isEmpty);
   });
+
+  test('a time stamp can be renewed only in its last year and a half', () {
+    StampExpiry at(int days) => StampExpiry(
+      box: demoBoxes.first,
+      dmId: '1',
+      expires: DateTime.now().add(Duration(days: days)),
+      subject: '',
+      counterparty: '',
+      received: true,
+    );
+    expect(at(400).renewable, isTrue);
+    expect(at(600).renewable, isFalse);
+  });
 }

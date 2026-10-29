@@ -333,3 +333,26 @@ class Contact {
     required this.last,
   });
 }
+
+/// A stored message whose qualified time stamp expires soon.
+class StampExpiry {
+  final DataBox box;
+  final String dmId;
+  final DateTime expires;
+  final String subject;
+  final String counterparty;
+  final bool received;
+
+  const StampExpiry({
+    required this.box,
+    required this.dmId,
+    required this.expires,
+    required this.subject,
+    required this.counterparty,
+    required this.received,
+  });
+
+  /// ISDS renews a time stamp only in its last year and a half.
+  bool get renewable =>
+      expires.difference(DateTime.now()) < const Duration(days: 548);
+}

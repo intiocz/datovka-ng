@@ -45,6 +45,7 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Doručenka a obálka do PDF, uložení ZFO zprávy i doručenky | ✅ | |
 | Otevřít ZFO v jiné aplikaci, poslat e-mailem (ZFO, přílohy, obojí) | ✅ | |
 | Stáhnout zprávu znovu z ISDS | 🧪 | stará kopie se nahradí až po stažení |
+| Hlídání expirace časových razítek | ✅ | Nástroje → Časová razítka, s obnovou; výsledky v `datovka-doplnky.db` |
 | Seznam smazaných zpráv | 🧪 | Informace o schránce |
 | Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB |
 | Štítky (`tag.db`) | ✅ | |
