@@ -10,15 +10,24 @@ if [ -z "$bundle" ] || [ -z "$version" ] || [ -z "$out" ]; then
   exit 1
 fi
 root=$(mktemp -d)
+here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$root/opt/datovka-ng" "$root/usr/bin" "$root/usr/share/applications" "$root/DEBIAN"
+for size in 64 128 256 512; do
+  mkdir -p "$root/usr/share/icons/hicolor/${size}x${size}/apps"
+  cp "$here/../branding/macos/AppIcon-$size.png" \
+    "$root/usr/share/icons/hicolor/${size}x${size}/apps/datovka-ng.png"
+done
 cp -a "$bundle"/. "$root/opt/datovka-ng/"
 ln -s /opt/datovka-ng/datovka-ng "$root/usr/bin/datovka-ng"
-cat > "$root/usr/share/applications/datovka-ng.desktop" << 'EOF'
+# Named after the application id, so the dock matches the window to it.
+cat > "$root/usr/share/applications/cz.user.datovka_ng.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Datovka NG
 Comment=Klient datových schránek
 Exec=/opt/datovka-ng/datovka-ng
+Icon=datovka-ng
+StartupWMClass=cz.user.datovka_ng
 Terminal=false
 Categories=Office;Network;
 EOF

@@ -37,6 +37,10 @@ jobs:
           bundle=app/build/linux/x64/release/bundle
           cp target/release/libdatovka_ffi.so "$bundle/lib/"
           tar -C "$bundle/.." -czf DATOVKA-linux-x64.tar.gz bundle
+          test -f "$bundle/data/app_icon.png"
+          ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
+          sh scripts/package-deb.sh "$bundle" "$ver" DatovkaNG-linux-amd64.deb
+          dpkg-deb -c DatovkaNG-linux-amd64.deb | grep -E "hicolor/256x256/apps/datovka-ng.png|cz.user.datovka_ng.desktop"
       - uses: actions/upload-artifact@v4
         with:
           name: DATOVKA-linux-x64
