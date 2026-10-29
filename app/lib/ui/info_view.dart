@@ -95,9 +95,15 @@ class InfoView extends StatelessWidget {
   const InfoView({super.key, required this.data});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    // On a phone the label goes above the value; a side column would leave
+    // the value a narrow strip.
+    builder: (context, c) => _build(context, c.maxWidth < 440),
+  );
+
+  Widget _build(BuildContext context, bool narrow) {
     final rows = <Widget>[];
-    _collect(context, data, 0, rows);
+    _collect(context, data, 0, rows, narrow);
     if (rows.isEmpty) {
       return Text(
         'ISDS nevrátil žádné údaje.',
@@ -111,22 +117,23 @@ class InfoView extends StatelessWidget {
     BuildContext context,
     dynamic v,
     int depth,
-    List<Widget> out, [
+    List<Widget> out,
+    bool narrow, [
     String? key,
   ]) {
     final t = Tokens.of(context);
     final text = Theme.of(context).textTheme;
     if (v == null) return;
-    // Version 2 services wrap fields as `<maltem><key/><value/></maltem>`.
+    // Version 2 services wrap fields as `<maItem><key/><value/></maItem>`.
     if (v is Map &&
         v.length == 2 &&
         v['key'] is String &&
         v.containsKey('value')) {
-      _collect(context, v['value'], depth, out, v['key'] as String);
+      _collect(context, v['value'], depth, out, narrow, v['key'] as String);
       return;
     }
-    if (v is Map && v.length == 1 && v.keys.single == 'maltem') {
-      _collect(context, v['maltem'], depth, out, key);
+    if (v is Map && v.length == 1 && v.keys.single == 'maItem') {
+      _collect(context, v['maItem'], depth, out, narrow, key);
       return;
     }
     if (v is Map) {
@@ -145,7 +152,7 @@ class InfoView extends StatelessWidget {
           ),
         );
       }
-      v.forEach((k, val) => _collect(context, val, depth + 1, out, '$k'));
+      v.forEach((k, val) => _collect(context, val, depth + 1, out, narrow, '$k'));
       return;
     }
     if (v is List) {
@@ -155,6 +162,7 @@ class InfoView extends StatelessWidget {
           item,
           depth,
           out,
+          narrow,
           item is Map && !item.containsKey('key')
               ? '${label(key ?? '')} ${i + 1}'
               : key,
@@ -169,21 +177,35 @@ class InfoView extends StatelessWidget {
           top: 3,
           bottom: 3,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 190,
-              child: Text(label(key ?? ''), style: text.bodySmall),
-            ),
-            Expanded(
-              child: SelectableText(
-                value(v),
-                style: text.bodyMedium?.copyWith(fontFeatures: tabular),
+        child: narrow
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label(key ?? ''),
+                    style: text.bodySmall?.copyWith(color: t.inkMuted),
+                  ),
+                  SelectableText(
+                    value(v),
+                    style: text.bodyMedium?.copyWith(fontFeatures: tabular),
+                  ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 190,
+                    child: Text(label(key ?? ''), style: text.bodySmall),
+                  ),
+                  Expanded(
+                    child: SelectableText(
+                      value(v),
+                      style: text.bodyMedium?.copyWith(fontFeatures: tabular),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
