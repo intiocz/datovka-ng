@@ -1,0 +1,15 @@
+[package]
+name = "datovka-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "datovka"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+datovka-core = { path = "../core" }
+serde_json.workspace = true
+tokio.workspace = true

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli", "ffi"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+aes = "0.8"
+anyhow = "1"
+base64 = "0.22"
+cbc = { version = "0.1", features = ["std"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+der = { version = "0.7", features = ["alloc"] }
+getrandom = "0.2"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+quick-xml = "0.37"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "cookies", "macos-system-configuration"] }
+rsa = "0.9"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = { version = "0.10", features = ["oid"] }
+sha2 = { version = "0.10", features = ["oid"] }
+thiserror = "2"
+x509-cert = "0.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+# Rust strips release builds with the system `strip` by default; on macOS 27
+# (Xcode 27) the stripped dylib has a mis-aligned LINKEDIT string pool that
+# dyld refuses to load, and the app silently falls back to demo data.
+[profile.release]
+strip = "none"

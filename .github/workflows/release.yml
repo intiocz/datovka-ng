@@ -1,0 +1,102 @@
+# Nahraje balíčky k vydání na GitHubu. Spouští se značkou v* (třeba v1.0.1).
+# Aplikace stahuje DatovkaNG-macos.zip, DatovkaNG-linux-amd64.deb
+# a DatovkaNG-windows-amd64.zip.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Balíčky systému
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Jádro
+        run: cargo build --release -p datovka-ffi
+      - name: Aplikace
+        working-directory: app
+        run: flutter build linux --release
+      - name: Balíček deb
+        run: |
+          bundle=app/build/linux/x64/release/bundle
+          cp target/release/libdatovka_ffi.so "$bundle/lib/"
+          ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
+          chmod +x scripts/package-deb.sh
+          scripts/package-deb.sh "$bundle" "$ver" dist/DatovkaNG-linux-amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: dist/DatovkaNG-linux-amd64.deb
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Aplikace a archiv
+        run: |
+          scripts/build-macos.sh
+          app=app/build/macos/Build/Products/Release/datovka-ng.app
+          ditto -c -k --keepParent "$app" dist/DatovkaNG-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-zip
+          path: dist/DatovkaNG-macos.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Jádro
+        run: cargo build --release -p datovka-ffi
+      - name: Aplikace
+        working-directory: app
+        run: flutter build windows --release
+      - name: Balíček zip
+        shell: pwsh
+        run: |
+          $out = "app/build/windows/x64/runner/Release"
+          Copy-Item target/release/datovka_ffi.dll $out
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "$out/*" -DestinationPath dist/DatovkaNG-windows-amd64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: dist/DatovkaNG-windows-amd64.zip
+
+  publish:
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    if: github.server_url == 'https://github.com'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Vydání
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/DatovkaNG-macos.zip dist/DatovkaNG-linux-amd64.deb dist/DatovkaNG-windows-amd64.zip \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --notes "Balíčky Datovky NG. Program se nesmí prodávat."

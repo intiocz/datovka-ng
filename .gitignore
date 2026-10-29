@@ -1,0 +1,13 @@
+/reference/
+/target
+/target 2
+.DS_Store
+/.playwright-mcp/
+/.claude/
+/dist/
+/app/android/app/src/main/jniLibs/
+/app/.dart_tool
+/app/.dart_tool 2
+/app/build
+/app/build 2
+/zadani.txt

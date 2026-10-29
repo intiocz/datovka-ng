@@ -1,0 +1,13 @@
+#include "Generated.xcconfig"
+
+// Rust core (ffi crate) linked statically; Dart finds it with DynamicLibrary.process().
+// Build it first: scripts/build-ios.sh
+DATOVKA_RUST_LIB[sdk=iphoneos*] = $(PROJECT_DIR)/../../target/aarch64-apple-ios/release/libdatovka_ffi.a
+DATOVKA_RUST_LIB[sdk=iphonesimulator*] = $(PROJECT_DIR)/../../target/aarch64-apple-ios-sim/release/libdatovka_ffi.a
+OTHER_LDFLAGS = $(inherited) -force_load $(DATOVKA_RUST_LIB) -framework Security -framework SystemConfiguration
+// The core is only looked up at run time (dlsym), so keep its exported symbols.
+DEAD_CODE_STRIPPING = NO
+STRIP_STYLE = non-global
+
+// Apple developer team for signing on a real iPhone.
+DEVELOPMENT_TEAM = 9AV29Y74DT

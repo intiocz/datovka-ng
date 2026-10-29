@@ -1,0 +1,36 @@
+[package]
+name = "datovka-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+aes.workspace = true
+base64.workspace = true
+cbc.workspace = true
+chrono.workspace = true
+der.workspace = true
+getrandom.workspace = true
+pbkdf2.workspace = true
+quick-xml.workspace = true
+reqwest.workspace = true
+rsa.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+x509-cert.workspace = true
+# Lists of erased messages come as a ZIP (PickUpAsyncResponse).
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Client certificates (PKCS#12) use the platform TLS; Android would need OpenSSL.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest = { workspace = true, features = ["native-tls"] }
+# Box passwords live in the system store (Keychain, Credential Manager,
+# Secret Service), never in the shared archive.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
+
+[dev-dependencies]
+tokio.workspace = true

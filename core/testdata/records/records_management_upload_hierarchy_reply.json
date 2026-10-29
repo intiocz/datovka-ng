@@ -1,0 +1,141 @@
+{
+    "id": null,
+    "metadata": [
+    ],
+    "name": null,
+    "sub": [
+        {
+            "id": null,
+            "metadata": [
+                "Administrativa"
+            ],
+            "name": "Interní spisy",
+            "sub": [
+                {
+                    "case_id": [
+                        "SC-0001",
+                        "SC-0002",
+                        ""
+                    ],
+                    "court_case_id": [
+                        ""
+                    ],
+                    "id": "1",
+                    "metadata": [
+                        "Administrativa",
+                        "SC-0001"
+                    ],
+                    "name": "Administrativa",
+                    "sub": [
+                    ]
+                }
+            ]
+        },
+        {
+            "id": null,
+            "metadata": [
+                "Brno Investment Group s.r.o."
+            ],
+            "name": "Brno Investment Group s.r.o.",
+            "sub": [
+                {
+                    "case_id": [
+                        "2017-0006",
+                        "SC-0002"
+                    ],
+                    "court_case_id": [
+                        "značka test 21/7",
+                        "2020",
+                        "2021",
+                        "značkatest21/7",
+                        "značka test21/7",
+                        "značkatest 21/7"
+                    ],
+                    "id": "7",
+                    "metadata": [
+                        "A Test 21/7",
+                        "2017-0006",
+                        "značka test 21/7",
+                        "2021",
+                        "značkatest21/7",
+                        "značka test21/7",
+                        "značkatest 21/7"
+                    ],
+                    "name": "A Test 21/7",
+                    "sub": [
+                    ]
+                },
+                {
+                    "case_id": [
+                        "2017-0003"
+                    ],
+                    "court_case_id": [
+                        "2020"
+                    ],
+                    "id": "4",
+                    "metadata": [
+                        "Corso office space rental",
+                        "2017-0003"
+                    ],
+                    "name": "Corso office space rental",
+                    "sub": [
+                    ]
+                },
+                {
+                    "case_id": [
+                        "2017-0001"
+                    ],
+                    "court_case_id": [
+                    ],
+                    "id": "2",
+                    "metadata": [
+                        "Sklizeno Foods",
+                        "2017-0001"
+                    ],
+                    "name": "Sklizeno Foods",
+                    "sub": [
+                    ]
+                },
+                {
+                    "case_id": [
+                        "2017-0005"
+                    ],
+                    "court_case_id": [
+                    ],
+                    "id": "6",
+                    "metadata": [
+                        "Test 21/7",
+                        "2017-0005"
+                    ],
+                    "name": "Test 21/7",
+                    "sub": [
+                    ]
+                }
+            ]
+        },
+        {
+            "id": null,
+            "metadata": [
+                "První pojišťovna s.r.o."
+            ],
+            "name": "První pojišťovna s.r.o.",
+            "sub": [
+                {
+                    "case_id": [
+                        "2017-0002"
+                    ],
+                    "court_case_id": [
+                    ],
+                    "id": "3",
+                    "metadata": [
+                        "Vymáhání pohledávek ALDA",
+                        "2017-0002"
+                    ],
+                    "name": "Vymáhání pohledávek ALDA",
+                    "sub": [
+                    ]
+                }
+            ]
+        }
+    ]
+}

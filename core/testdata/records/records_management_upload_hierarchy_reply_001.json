@@ -1,0 +1,90 @@
+{
+    "id": null,
+    "metadata": [
+    ],
+    "name": null,
+    "sub": [
+        {
+            "id": null,
+            "metadata": [
+                "metadata_000"
+            ],
+            "name": "name_000",
+            "sub": [
+                {
+                    "case_id": [
+                        "case_id_000_001",
+                        "case_id_000_001a"
+                    ],
+                    "court_case_id": [
+                        "court_case_id_000_001",
+                        "court_case_id_000_001a"
+                    ],
+                    "id": "id_000_001",
+                    "metadata": [
+                        "metadata_000_001",
+                        "metadata_000_001a"
+                    ],
+                    "name": "name_000_001",
+                    "sub": [
+                    ]
+                },
+                {
+                    "case_id": [
+                        "case_id_000_002"
+                    ],
+                    "court_case_id": [
+                        "court_case_id_000_002"
+                    ],
+                    "id": "id_000_002",
+                    "metadata": [
+                        "metadata_000_002",
+                        "metadata_000_002a"
+                    ],
+                    "name": "name_000_002",
+                    "sub": [
+                    ]
+                },
+                {
+                    "case_id": [
+                        "case_id_000_003"
+                    ],
+                    "court_case_id": [
+                    ],
+                    "id": "2",
+                    "metadata": [
+                        "metadata_000_003",
+                        "metadata_000_003a"
+                    ],
+                    "name": "name_000_003",
+                    "sub": [
+                    ]
+                }
+            ]
+        },
+        {
+            "id": null,
+            "metadata": [
+                "metadata_001"
+            ],
+            "name": "name_001",
+            "sub": [
+                {
+                    "case_id": [
+                        "case_id_001_001"
+                    ],
+                    "court_case_id": [
+                    ],
+                    "id": "id_001_001",
+                    "metadata": [
+                        "metadata_001_003",
+                        "metadata_001_003a"
+                    ],
+                    "name": "name_001_003",
+                    "sub": [
+                    ]
+                }
+            ]
+        }
+    ]
+}
