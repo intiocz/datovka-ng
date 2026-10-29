@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 
+import 'android_bridge.dart';
 import 'data_folder.dart';
 import 'user_error.dart';
 
@@ -129,7 +130,8 @@ class CoreBridge {
       case 'dk_set_pin' ||
           'dk_rm_settings_set' ||
           'dk_rm_stored' ||
-          'dk_secret_set':
+          'dk_secret_set' ||
+          'dk_secret_key':
         return _lib.lookupFunction<
           _Str Function(_Str, _Str),
           _Str Function(_Str, _Str)
@@ -236,6 +238,10 @@ class CoreBridge {
     if (Platform.isIOS) {
       if (!await DataFolder.preview(path)) {
         throw UserError('Soubor se nepodařilo otevřít.');
+      }
+    } else if (Platform.isAndroid) {
+      if (!await AndroidBridge.open(path)) {
+        throw UserError('V telefonu není aplikace, která by soubor otevřela.');
       }
     } else if (Platform.isMacOS) {
       await Process.run('open', [path]);

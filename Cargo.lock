@@ -553,6 +553,7 @@ dependencies = [
  "chrono",
  "der",
  "getrandom 0.2.17",
+ "hmac",
  "keyring",
  "pbkdf2",
  "quick-xml",

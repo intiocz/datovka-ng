@@ -1641,6 +1641,26 @@ pub extern "C" fn dk_rm_stored(dir: *const c_char, dm_ids_json: *const c_char) -
     })())
 }
 
+/// Android: the key for the passwords file (hex of 32 bytes, kept by the
+/// app in the Android Keystore) and the file in the app's own storage.
+#[no_mangle]
+pub extern "C" fn dk_secret_key(key: *const c_char, path: *const c_char) -> *mut c_char {
+    respond((|| {
+        let hex = arg(key)?;
+        let raw: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| hex.get(i..i + 2).and_then(|b| u8::from_str_radix(b, 16).ok()))
+            .collect::<Option<_>>()
+            .ok_or("klíč není v šestnáctkovém zápisu")?;
+        let key: [u8; 32] = raw.try_into().map_err(|_| "klíč musí mít 32 bajtů".to_string())?;
+        #[cfg(target_os = "android")]
+        datovka_core::legacy::secrets::use_file_store(key, std::path::PathBuf::from(arg(path)?));
+        #[cfg(not(target_os = "android"))]
+        let _ = (key, path);
+        Ok(json!(true))
+    })())
+}
+
 /// A secret of this device (an API key) from the system store, or null.
 #[no_mangle]
 pub extern "C" fn dk_secret_get(name: *const c_char) -> *mut c_char {

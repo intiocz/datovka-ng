@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../data/android_bridge.dart';
 import '../theme.dart';
 import 'app_scope.dart';
 import 'connect_assistant.dart';
@@ -142,7 +143,12 @@ class ToolsMenu extends StatelessWidget {
             final path = s.tempPath(name);
             if (path == null) return;
             say(await s.backup(path));
-            await s.core?.openFile(path);
+            // Out of the phone: Drive, e-mail, Files.
+            if (Platform.isAndroid) {
+              await AndroidBridge.share(path);
+            } else {
+              await s.core?.openFile(path);
+            }
             return;
           }
           final loc = await getSaveLocation(suggestedName: name);

@@ -12,6 +12,7 @@ pub mod lock;
 pub mod mobile;
 pub mod pin;
 pub mod query;
+pub mod sealed;
 pub mod secrets;
 pub mod sync;
 mod write;

@@ -10,6 +10,7 @@ cbc.workspace = true
 chrono.workspace = true
 der.workspace = true
 getrandom.workspace = true
+hmac.workspace = true
 pbkdf2.workspace = true
 quick-xml.workspace = true
 reqwest.workspace = true

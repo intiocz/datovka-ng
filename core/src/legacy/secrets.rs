@@ -1,5 +1,6 @@
 //! Box passwords in the system store of this device: Keychain on macOS and
-//! iOS, Credential Manager on Windows, Secret Service on Linux. They never go
+//! iOS, Credential Manager on Windows, Secret Service on Linux, and on
+//! Android a file encrypted with a key from the Android Keystore. They never go
 //! into `dsgui.conf`, so the shared archive (iCloud, other computers) does not
 //! carry them. The original Datovka keeps its own base64 passwords in
 //! `dsgui.conf`; those are read as before.
@@ -77,24 +78,45 @@ mod store {
     }
 }
 
-/// Android has no store wired in yet: nothing is saved, the user types the
-/// password at login.
+/// Android: an encrypted file in the app's own storage, with a key the app
+/// keeps in the Android Keystore and hands over at start ([`use_file_store`]).
 #[cfg(all(not(test), target_os = "android"))]
 mod store {
     use super::*;
+    use crate::legacy::sealed::FileStore;
+    use std::sync::Mutex;
 
-    pub fn get(_: &str) -> Option<String> {
+    pub(super) static FILE: Mutex<Option<FileStore>> = Mutex::new(None);
+
+    pub fn get(account: &str) -> Option<String> {
         let _ = SERVICE;
-        None
+        FILE.lock().unwrap().as_ref()?.get(account)
     }
 
-    pub fn set(_: &str, _: &str) -> Result<()> {
-        Err(fail("na Androidu zatím není k dispozici"))
+    pub fn set(account: &str, password: &str) -> Result<()> {
+        match FILE.lock().unwrap().as_ref() {
+            Some(f) => f.set(account, password),
+            None => Err(fail("úložiště klíčů telefonu není dostupné")),
+        }
     }
 
-    pub fn delete(_: &str) -> Result<()> {
-        Ok(())
+    pub fn delete(account: &str) -> Result<()> {
+        match FILE.lock().unwrap().as_ref() {
+            Some(f) => f.delete(account),
+            None => Ok(()),
+        }
     }
+}
+
+/// Where the passwords of this device are kept on Android; see [`store`].
+#[cfg(target_os = "android")]
+pub fn use_file_store(key: [u8; 32], path: std::path::PathBuf) {
+    #[cfg(not(test))]
+    {
+        *store::FILE.lock().unwrap() = Some(crate::legacy::sealed::FileStore { key, path });
+    }
+    #[cfg(test)]
+    let _ = (key, path);
 }
 
 /// Tests keep passwords in memory and never touch the real store.

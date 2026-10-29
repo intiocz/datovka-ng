@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'data/android_bridge.dart';
 import 'data/app_state.dart';
 import 'data/archive_location.dart';
 import 'data/core_bridge.dart';
@@ -48,7 +50,21 @@ Future<void> main() async {
     }
   }
   await AppLock.load();
-  runApp(DatovkaApp(state: AppState(core: CoreBridge.open())));
+  final core = CoreBridge.open();
+  if (core != null && defaultTargetPlatform == TargetPlatform.android) {
+    // Passwords of this phone: a file in the app's storage, its key in the
+    // Android Keystore.
+    final key = await AndroidBridge.secretKey();
+    if (key != null) {
+      final dir = await getApplicationSupportDirectory();
+      try {
+        core.call('secret_key', [key, '${dir.path}/hesla.bin']);
+      } on Object {
+        // Without it the passwords are asked at each login, as before.
+      }
+    }
+  }
+  runApp(DatovkaApp(state: AppState(core: core)));
 }
 
 /// Shown while the archive is brought onto the phone.
