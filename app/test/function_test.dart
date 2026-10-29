@@ -10,6 +10,7 @@ import 'package:datovka/main.dart';
 import 'package:datovka/ui/ai_dialog.dart';
 import 'package:datovka/ui/app_lock.dart';
 import 'package:datovka/ui/home.dart';
+import 'package:datovka/ui/login_dialog.dart';
 import 'package:datovka/ui/format.dart' show monthNames;
 import 'package:datovka/ui/message_list.dart';
 import 'package:datovka/ui/settings_dialog.dart';
@@ -629,4 +630,53 @@ void main() {
       expect((saved.textSize, saved.themeMode), (1, ThemeMode.dark));
     });
   }
+
+  testWidgets('a new box cannot pick the code from an app, ISDS ends it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = _sample();
+    await tester.pumpWidget(DatovkaApp(state: state));
+    showAddBoxDialog(tester.element(find.byType(Scaffold).first));
+    await tester.pumpAndSettle();
+    expect(find.text(LoginMethod.passwordSms.label), findsOneWidget);
+    expect(find.text(LoginMethod.passwordOtp.label), findsNothing);
+  });
+
+  testWidgets('a suspicious message warns and a received one can be reported', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final messages = demoMessages();
+    final i = messages.indexWhere((m) => m.direction == Direction.received);
+    final m0 = messages[i];
+    messages[i] = Message(
+      boxId: m0.boxId,
+      dmId: m0.dmId,
+      direction: m0.direction,
+      subject: m0.subject,
+      counterparty: m0.counterparty,
+      counterpartyAddress: m0.counterpartyAddress,
+      delivered: m0.delivered,
+      suspicious: true,
+    );
+    final state = AppState(initialBoxes: demoBoxes, messages: messages);
+    await tester.pumpWidget(DatovkaApp(state: state));
+    state.open(m0.dmId);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ISDS označil tuto zprávu jako podezřelou'), findsOneWidget);
+    expect(find.byIcon(Icons.report_outlined), findsWidgets);
+
+    await tester.tap(find.text(m0.subject).first, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ISDS'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nahlásit jako podezřelou (spam)…'), findsOneWidget);
+  });
 }

@@ -962,6 +962,12 @@ pub extern "C" fn dk_op(
                 block_on(c.mark_as_read(&dm()?.to_string()))?.map_err(fail)?;
                 json!(true)
             }
+            "report_suspicious" => {
+                let allow = args.get("allow_complete").and_then(Value::as_bool).unwrap_or(true);
+                let note = str_arg("note").unwrap_or_default();
+                block_on(c.report_suspicious(&dm()?.to_string(), allow, &note))?.map_err(fail)?;
+                json!(true)
+            }
             "erase" => {
                 let incoming = args
                     .get("incoming")

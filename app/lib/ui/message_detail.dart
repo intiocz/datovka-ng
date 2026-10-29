@@ -45,6 +45,30 @@ class MessageDetail extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (m.suspicious) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: t.danger.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.report_outlined, color: t.danger),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'ISDS označil tuto zprávu jako podezřelou '
+                                    '(nevyžádaná nebo škodlivá). Přílohy '
+                                    'otevírejte opatrně.',
+                                    style: text.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         Text(
                           m.subject,
                           style: text.headlineSmall?.copyWith(fontSize: 24),

@@ -141,6 +141,13 @@ async fn sync_directions(
             let Ok(dm_id) = env.dm_id.parse::<i64>() else {
                 continue;
             };
+            // ISDS may mark a message as suspicious days after delivery.
+            if let Some(flag) = env.spec_mess_flag {
+                if store.contains(account, dm_id)? {
+                    let _ = store.set_spec_mess_flag(lock, account, dm_id, flag);
+                    continue;
+                }
+            }
             if store.contains(account, dm_id)? {
                 continue;
             }
@@ -169,10 +176,15 @@ async fn sync_directions(
             };
             let di = client.download_delivery_info(&env.dm_id).await.ok();
             match store.insert_message(lock, account, direction, &zfo, di.as_deref()) {
-                Ok(true) => match direction {
-                    Direction::Received => report.new_received += 1,
-                    Direction::Sent => report.new_sent += 1,
-                },
+                Ok(true) => {
+                    if let Some(flag) = env.spec_mess_flag {
+                        let _ = store.set_spec_mess_flag(lock, account, dm_id, flag);
+                    }
+                    match direction {
+                        Direction::Received => report.new_received += 1,
+                        Direction::Sent => report.new_sent += 1,
+                    }
+                }
                 Ok(false) => {}
                 Err(e) => report.errors.push(format!("{}: {e}", env.dm_id)),
             }

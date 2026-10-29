@@ -19,7 +19,7 @@ na testovací prostředí.
 | Jméno a heslo | ✅ | |
 | Mobilní klíč | ✅ | jen na pokyn uživatele, bez opakovaných upozornění |
 | Heslo + SMS kód | 🧪 | `type=totp` |
-| Heslo + kód z aplikace (HOTP) | 🧪 | `type=hotp` |
+| Heslo + kód z aplikace (HOTP) | 🧪 | `type=hotp`; ISDS ho ruší, nově se nenabízí, stávající schránky upozorní |
 | Certifikát, certifikát + heslo | 🧪 | PKCS#12, `ws1c` `certds/`/`hspis/`; ne na Androidu |
 | Testovací prostředí | 🧪 | |
 | Upozornění na konec platnosti hesla | ✅ | `GetPasswordInfo` ověřeno na ostrém ISDS |
@@ -44,6 +44,7 @@ na testovací prostředí.
 | Lokální ověření podpisu a časového razítka | ✅ | ověřeno na vzorových i tvých zprávách |
 | Autor zprávy | ✅ | `GetMessageAuthor2` |
 | Smazání zprávy v ISDS | 🧪 | originál zůstane v archivu |
+| Podezřelé zprávy (spam) | 🧪 | příznak `specMessFlag` v seznamu i detailu, nahlášení `SuspMessageReport` |
 | Smazání zprávy jen v počítači | ✅ | jako originál, i s certifikáty |
 | Stav vyřízení (nevyřízeno, vyřizuje se, vyřízeno) | ✅ | `process_state`, sdílený s originálem |
 | Použít zprávu jako šablonu | ✅ | adresát, věc, č. j., přílohy |

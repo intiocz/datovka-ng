@@ -25,8 +25,8 @@
 
 Pro každého, kdo má datovou schránku, a hlavně pro ty, kdo jich mají hodně:
 advokáty, účetní, daňové poradce, správce firem. Desítky schránek jsou
-v jednom okně, stahují se samy a zprávy se dají procházet po letech
-a měsících.
+v jednom okně, stáhnou se jedním tlačítkem (nebo samy v intervalu, který si
+zvolíte) a zprávy se dají procházet po letech a měsících.
 
 ## Co umí
 

@@ -27,16 +27,16 @@ Message messageFromRow(Map<String, dynamic> r) {
     direction: sent ? Direction.sent : Direction.received,
     subject: r['annotation'] as String? ?? '(bez věci)',
     counterparty: (sent ? r['recipient'] : r['sender']) as String? ?? '',
-    counterpartyBoxId: (sent ? r['recipient_box_id'] : r['sender_box_id'])
-        as String?,
+    counterpartyBoxId:
+        (sent ? r['recipient_box_id'] : r['sender_box_id']) as String?,
     counterpartyAddress:
         (sent ? r['recipient_address'] : r['sender_address']) as String? ?? '',
     delivered: time.toLocal(),
     isRead: sent || (r['read_locally'] as bool? ?? false),
-    ourRef: (sent ? r['sender_ref_number'] : r['recipient_ref_number'])
-        as String?,
-    theirRef: (sent ? r['recipient_ref_number'] : r['sender_ref_number'])
-        as String?,
+    ourRef:
+        (sent ? r['sender_ref_number'] : r['recipient_ref_number']) as String?,
+    theirRef:
+        (sent ? r['recipient_ref_number'] : r['sender_ref_number']) as String?,
     attachments: List.generate(
       (r['attachments'] as num?)?.toInt() ?? 0,
       (_) => const Attachment('', 0),
@@ -51,6 +51,7 @@ Message messageFromRow(Map<String, dynamic> r) {
           (r['process_state'] as num?)?.toInt() ?? 0,
         ) ??
         ProcessState.unsettled,
+    suspicious: r['suspicious'] == true,
   );
 }
 
@@ -111,9 +112,7 @@ class MailboxPage {
                 DateTime.fromMillisecondsSinceEpoch(0),
           ),
       ],
-      allTags: [
-        for (final t in (j['all_tags'] as List? ?? const [])) '$t',
-      ],
+      allTags: [for (final t in (j['all_tags'] as List? ?? const [])) '$t'],
       months: {
         for (final e in ((j['months'] as Map?) ?? const {}).entries)
           '${e.key}': (e.value as num).toInt(),

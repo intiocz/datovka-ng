@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Per-device preferences (not synced: each device decides how often it
 /// talks to ISDS).
 class Settings {
-  /// Minutes between automatic downloads; 0 turns it off.
+  /// Minutes between automatic downloads; 0 downloads only on request (the
+  /// default: ISDS wants desktop apps to log in when the user says so).
   final int syncMinutes;
 
   /// Download new messages right after the app starts.
@@ -31,7 +32,7 @@ class Settings {
   double get textScale => const [0.92, 1.0, 1.08][textSize.clamp(-1, 1) + 1];
 
   const Settings({
-    this.syncMinutes = 15,
+    this.syncMinutes = 0,
     this.syncOnStart = true,
     this.markReadInIsds = false,
     this.proxy = '',
@@ -43,7 +44,7 @@ class Settings {
   static Future<Settings> load() async {
     final p = await SharedPreferences.getInstance();
     return Settings(
-      syncMinutes: p.getInt('syncMinutes') ?? 15,
+      syncMinutes: p.getInt('syncMinutes') ?? 0,
       syncOnStart: p.getBool('syncOnStart') ?? true,
       markReadInIsds: p.getBool('markReadInIsds') ?? false,
       proxy: p.getString('proxy') ?? '',

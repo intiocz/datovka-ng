@@ -376,6 +376,18 @@ impl Client {
             .await
     }
 
+    /// Reports a received message as suspicious (spam) to the ISDS operator
+    /// (`SuspMessageReport`). Without `allow_complete` the operator cannot
+    /// download the message and will likely set the report aside.
+    pub async fn report_suspicious(&self, id: &str, allow_complete: bool, note: &str) -> Result<()> {
+        let mut inner = format!("{}<isds:allowComplete>{allow_complete}</isds:allowComplete>", dm_id(id));
+        if !note.trim().is_empty() {
+            inner += &format!("<isds:note>{}</isds:note>", escape(note.trim()));
+        }
+        self.call(Service::Dx, "SuspMessageReport", &inner).await?;
+        Ok(())
+    }
+
     /// Deletes a message from ISDS (allowed for messages already in the vault
     /// or delivered; the local copy stays).
     pub async fn erase_message(&self, id: &str, incoming: bool) -> Result<()> {

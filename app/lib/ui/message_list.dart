@@ -311,6 +311,17 @@ class _Row extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
+                        if (m.suspicious) ...[
+                          Tooltip(
+                            message: 'ISDS ji označil jako podezřelou',
+                            child: Icon(
+                              Icons.report_outlined,
+                              size: 14,
+                              color: t.danger,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         if (m.processState != ProcessState.unsettled) ...[
                           Tooltip(
                             message: m.processState.label,

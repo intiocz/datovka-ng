@@ -8,6 +8,7 @@
 pub mod backup;
 pub mod conf;
 mod extra;
+mod flags;
 pub mod lock;
 pub mod mobile;
 pub mod pin;
@@ -61,6 +62,8 @@ pub struct MessageSummary {
     pub has_zfo: bool,
     /// 0 unsettled, 1 in progress, 2 settled (`process_state` of the original).
     pub process_state: i64,
+    /// ISDS marked the message as suspicious (`specMessFlag`).
+    pub suspicious: bool,
     /// Database file the message lives in (file name only).
     pub db_file: String,
 }
@@ -226,7 +229,7 @@ impl LegacyStore {
                 "0"
             };
             let mut stmt = c.prepare(&format!(
-                "SELECT {COLUMNS}, {state} FROM messages m
+                "SELECT {COLUMNS}, {state}, ifnull(s.specMessFlag, 0) FROM messages m
                  LEFT JOIN supplementary_message_data s ON s.message_id = m.dmID"
             ))?;
             let rows = stmt.query_map([], |r| {
@@ -258,6 +261,7 @@ impl LegacyStore {
                     read_locally: r.get::<_, Option<bool>>(15)?.unwrap_or(false),
                     has_zfo: r.get::<_, i64>(16)? > 0,
                     process_state: r.get::<_, Option<i64>>(17)?.unwrap_or(0),
+                    suspicious: r.get::<_, i64>(18)? > 0,
                     db_file: file.clone(),
                 })
             })?;

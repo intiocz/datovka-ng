@@ -389,6 +389,10 @@ pub struct MobileKeyLogin {
     intermediate: Option<String>,
 }
 
+/// ISDS checks attachments for viruses for up to about 240 seconds before it
+/// answers (WSDL 3.09), so a request may take longer than that.
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
 fn http_client(cookies: bool) -> Result<reqwest::Client> {
     let mut b = crate::http_builder();
     if cookies {
@@ -397,7 +401,7 @@ fn http_client(cookies: bool) -> Result<reqwest::Client> {
         b = b.pool_max_idle_per_host(0);
     }
     Ok(b.user_agent(concat!("Datovka/", env!("CARGO_PKG_VERSION")))
-        .timeout(std::time::Duration::from_secs(120))
+        .timeout(REQUEST_TIMEOUT)
         .cookie_store(cookies)
         .redirect(reqwest::redirect::Policy::none())
         .build()?)
@@ -481,7 +485,7 @@ impl Client {
             })?;
         let http = crate::http_builder()
             .user_agent(concat!("Datovka/", env!("CARGO_PKG_VERSION")))
-            .timeout(std::time::Duration::from_secs(120))
+            .timeout(REQUEST_TIMEOUT)
             .use_native_tls()
             .identity(identity)
             .redirect(reqwest::redirect::Policy::none())

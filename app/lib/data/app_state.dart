@@ -100,7 +100,8 @@ class AppState extends ChangeNotifier {
        _sampleDirectory = core == null ? directory : const [] {
     if (core != null) {
       reload();
-      // Quietly download new messages: at start and every 15 minutes. Only
+      // Quietly download new messages: at start and, when chosen, at an
+      // interval. Only
       // boxes that can log in without the user are contacted.
       if (autoSync) {
         Settings.load().then((st) {

@@ -30,6 +30,7 @@ enum _Action {
   resign,
   redownload,
   erase,
+  reportSpam,
   deleteLocal,
   saveZfo,
   saveAttachments,
@@ -79,8 +80,7 @@ List<Widget> _menu(BuildContext context, Message m, {bool inList = false}) {
 
   return [
     if (inList) item('Otevřít', () => s.open(m.dmId)),
-    if (received)
-      item('Odpovědět', () => showCompose(context, Draft.reply(m))),
+    if (received) item('Odpovědět', () => showCompose(context, Draft.reply(m))),
     item('Přeposlat', () => run(_Action.forward)),
     item('Použít jako šablonu', () => run(_Action.template)),
     line,
@@ -119,8 +119,7 @@ List<Widget> _menu(BuildContext context, Message m, {bool inList = false}) {
         'Doručenku do PDF…',
         () => saveMessagePdf(context, m, MessagePdf.delivery),
       ),
-      if (!phone)
-        item('Všechny přílohy…', () => run(_Action.saveAttachments)),
+      if (!phone) item('Všechny přílohy…', () => run(_Action.saveAttachments)),
     ]),
     if (!phone) item('Tisk obálky…', () => printEnvelope(context, m)),
     sub('Otevřít v jiné aplikaci', [
@@ -141,6 +140,8 @@ List<Widget> _menu(BuildContext context, Message m, {bool inList = false}) {
       item('Doručenka a události', () => run(_Action.delivery)),
       item('Obnovit časové razítko', () => run(_Action.resign)),
       item('Stáhnout znovu z ISDS', () => run(_Action.redownload)),
+      if (received)
+        item('Nahlásit jako podezřelou (spam)…', () => run(_Action.reportSpam)),
     ]),
     line,
     item('Smazat jen v počítači…', () => run(_Action.deleteLocal)),
@@ -437,6 +438,27 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
           SnackBar(content: Text('Obnova razítka selhala: $e')),
         );
       }
+    case _Action.reportSpam:
+      final report = await _askSpamReport(context);
+      if (report == null) return;
+      try {
+        await s.op(box, 'report_suspicious', {
+          ...args,
+          'allow_complete': report.allowComplete,
+          'note': report.note,
+        });
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Zpráva nahlášena správci ISDS. Posouzení může trvat i dny.',
+            ),
+          ),
+        );
+      } on Object catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Nahlášení se nepovedlo: $e')),
+        );
+      }
     case _Action.erase:
       final ok = await showDialog<bool>(
         context: context,
@@ -473,6 +495,68 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
         messenger.showSnackBar(SnackBar(content: Text('Smazání selhalo: $e')));
       }
   }
+}
+
+/// Asks before reporting a message as spam (`SuspMessageReport`).
+Future<({bool allowComplete, String note})?> _askSpamReport(
+  BuildContext context,
+) async {
+  var allow = true;
+  final note = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Nahlásit podezřelou zprávu'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Správce ISDS zprávu posoudí. Když ji vyhodnotí jako spam, '
+                'označí ji ve všech schránkách a zakročí proti odesílateli. '
+                'Zprávy od úřadů (OVM) nahlásit nejde.',
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: allow,
+                onChanged: (v) => setState(() => allow = v ?? true),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Povolit správci stáhnout celou zprávu'),
+                subtitle: const Text(
+                  'Bez příloh ji správce posoudit nemůže a nahlášení '
+                  'nejspíš odloží.',
+                ),
+              ),
+              TextField(
+                controller: note,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Poznámka (nepovinné)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Zrušit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Nahlásit'),
+          ),
+        ],
+      ),
+    ),
+  );
+  final text = note.text;
+  note.dispose();
+  return ok == true ? (allowComplete: allow, note: text) : null;
 }
 
 /// Edits the note of [m]; an emptied text removes it.
@@ -570,7 +654,10 @@ Future<String?> _askTag(BuildContext context, Message m) {
             spacing: 6,
             children: [
               for (final t in s.allTags.where((t) => !m.tags.contains(t)))
-                ActionChip(label: Text(t), onPressed: () => Navigator.pop(ctx, t)),
+                ActionChip(
+                  label: Text(t),
+                  onPressed: () => Navigator.pop(ctx, t),
+                ),
             ],
           ),
         ],

@@ -52,6 +52,9 @@ pub struct Envelope {
     pub qtimestamp_b64: Option<String>,
     pub atts_num: Option<i64>,
     pub vodz: Option<bool>,
+    /// `specMessFlag`: ISDS marked the message as suspicious (spam).
+    #[serde(default)]
+    pub spec_mess_flag: Option<i64>,
 }
 
 impl Envelope {

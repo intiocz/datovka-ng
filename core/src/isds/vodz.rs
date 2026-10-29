@@ -28,6 +28,9 @@ const XOP_NS: &str = "http://www.w3.org/2004/08/xop/include";
 const ROOT_CID: &str = "rootpart@soapui.org";
 const ATT_CID: &str = "att_1";
 
+/// ISDS status of `UploadAttachment` when its virus check timed out.
+const AV_TIMEOUT: &str = "2046";
+
 /// A file stored in ISDS by `UploadAttachment`, to be referenced by
 /// `CreateBigMessage`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -233,14 +236,32 @@ impl Client {
         }
         let soap = soap12("UploadAttachment", &upload_body(name, mime));
         let (content_type, body) = mtom_upload(&soap, name, mime, data);
-        let req = self
-            .http
-            .post(self.vodz_url())
-            .header("Content-Type", content_type)
-            .header("Accept", "application/soap+xml,application/xml,text/xml")
-            .header("SOAPAction", "")
-            .body(body);
-        let r = self.send(req).await?;
+        let upload = || {
+            self.http
+                .post(self.vodz_url())
+                .header("Content-Type", &content_type)
+                .header("Accept", "application/soap+xml,application/xml,text/xml")
+                .header("SOAPAction", "")
+                .body(body.clone())
+        };
+        // 2046: the virus check of the file did not finish in time. Once
+        // more after a pause, then say what happened.
+        let r = match self.send(upload()).await {
+            Err(Error::Isds { code, .. }) if code == AV_TIMEOUT => {
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                self.send(upload()).await.map_err(|e| match e {
+                    Error::Isds { code, .. } if code == AV_TIMEOUT => Error::Isds {
+                        code,
+                        text: format!(
+                            "ISDS nestihlo zkontrolovat přílohu {name} antivirem. \
+                             Zkuste zprávu odeslat znovu později."
+                        ),
+                    },
+                    e => e,
+                })?
+            }
+            r => r?,
+        };
         parse_uploaded(&r)
     }
 

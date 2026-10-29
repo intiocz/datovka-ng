@@ -70,6 +70,16 @@ Tlačítko obnovit vlevo dole stáhne nové přijaté a odeslané zprávy ze vš
 schránek, které se umějí přihlásit bez vás, tedy jménem a uloženým heslem.
 Ke každé zprávě se uloží i podepsaný originál a doručenka.
 
+Nové zprávy se stáhnou po spuštění aplikace a pak tlačítkem. Provozní řád
+ISDS chce, aby se aplikace v počítači přihlašovala na pokyn uživatele, proto
+je automatické stahování ve výchozím stavu ruční. V Nastavení → Stahování si
+můžete zvolit interval (5 minut až 4 hodiny), je to vaše rozhodnutí.
+
+Zprávu, kterou ISDS označí jako podezřelou (spam, možný škodlivý obsah),
+Datovka označí v seznamu i v detailu. Podezřelou přijatou zprávu můžete sami
+nahlásit správci ISDS: menu zprávy → ISDS → *Nahlásit jako podezřelou
+(spam)…*. Zprávy od úřadů nahlásit nejde.
+
 > Stažení seznamu přijatých zpráv ISDS počítá jako přihlášení do schránky,
 > tedy jako doručení čekajících zpráv (doručení přihlášením). Platí to stejně
 > jako u původní Datovky nebo webu. Stažení odeslaných zpráv, ověření zprávy

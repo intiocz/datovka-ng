@@ -152,6 +152,7 @@ async fn record_all(base: &str) {
     let _ = c.mark_as_read("123").await;
     let _ = c.message_author("123").await;
     let _ = c.erase_message("123", true).await;
+    let _ = c.report_suspicious("123", true, "nevyžádaná reklama").await;
     let _ = c.request_erased(2025, Some(3), true).await;
     let _ = c.request_erased(2024, None, false).await;
     let _ = c.pick_up_erased("async-1").await;

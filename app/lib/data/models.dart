@@ -11,7 +11,7 @@ enum LoginMethod {
   ),
   passwordOtp(
     'Heslo a kód z aplikace',
-    'Kód z ověřovací aplikace (TOTP) nebo tokenu (HOTP).',
+    'ISDS tento způsob ruší. Přepněte schránku na mobilní klíč nebo SMS.',
   ),
   mobileKey(
     'Mobilní klíč',
@@ -26,6 +26,10 @@ enum LoginMethod {
   final String description;
 
   const LoginMethod(this.label, this.description);
+
+  /// ISDS is ending the code from an app or token (HOTP); a box can keep it
+  /// until it changes it, but it is no longer offered.
+  bool get retired => this == LoginMethod.passwordOtp;
 
   /// Methods that need the user at hand for every login. Background sync never
   /// starts such a login on its own.
@@ -136,6 +140,9 @@ class Message {
 
   final ProcessState processState;
 
+  /// ISDS marked the message as suspicious (spam, possibly harmful).
+  final bool suspicious;
+
   const Message({
     required this.boxId,
     required this.dmId,
@@ -154,6 +161,7 @@ class Message {
     this.deadline,
     this.note,
     this.processState = ProcessState.unsettled,
+    this.suspicious = false,
   });
 
   DateTime get isdsDeletion => delivered.add(isdsRetention);
@@ -185,6 +193,7 @@ class Message {
     deadline: clearDeadline ? null : (deadline ?? this.deadline),
     note: clearNote ? null : (note ?? this.note),
     processState: processState ?? this.processState,
+    suspicious: suspicious,
   );
 }
 

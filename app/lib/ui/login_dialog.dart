@@ -137,6 +137,15 @@ class _LoginDialogState extends State<_LoginDialog> {
 
     final body = switch (_step) {
       _Step.credentials => [
+        if (method.retired) ...[
+          Text(
+            'ISDS přihlašování kódem z aplikace ruší. Na portálu datových '
+            'schránek si zapněte mobilní klíč nebo SMS a v Datovce pak změňte '
+            'způsob přihlášení schránky.',
+            style: text.bodySmall?.copyWith(color: t.warn),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (method == LoginMethod.mobileKey)
           Text(
             stored
@@ -440,18 +449,19 @@ class LoginMethodFields extends StatelessWidget {
           child: Column(
             children: [
               for (final m in LoginMethod.values)
-                RadioListTile<LoginMethod>(
-                  value: m,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    m.label,
-                    style: text.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                if (!m.retired || m == method)
+                  RadioListTile<LoginMethod>(
+                    value: m,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      m.label,
+                      style: text.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    subtitle: Text(m.description, style: text.bodySmall),
                   ),
-                  subtitle: Text(m.description, style: text.bodySmall),
-                ),
             ],
           ),
         ),
@@ -554,8 +564,7 @@ class _ChangeLoginDialogState extends State<_ChangeLoginDialog> {
                 method: _method,
                 secret: _secret,
                 onChanged: (m) => setState(() => _method = m),
-                passwordHelper:
-                    'Nechte prázdné, pokud se heslo nemění nebo ho nechcete ukládat.',
+                passwordHelper: 'Nechte prázdné, pokud se heslo nemění nebo ho nechcete ukládat.',
               ),
               if (_error != null)
                 Padding(
@@ -577,9 +586,8 @@ class _ChangeLoginDialogState extends State<_ChangeLoginDialog> {
         FilledButton(
           onPressed: () async {
             try {
-              await AppScope.of(
-                context,
-              ).changeLogin(widget.box, _method, secret: _secret.text);
+              await AppScope.of(context)
+                  .changeLogin(widget.box, _method, secret: _secret.text);
               if (context.mounted) Navigator.of(context).pop(true);
             } on Object catch (e) {
               setState(() => _error = '$e');

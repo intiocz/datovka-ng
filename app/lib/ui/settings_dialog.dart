@@ -296,12 +296,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             children: [
               _Row(
                 title: 'Automaticky stahovat',
+                subtitle:
+                    'ISDS chce, aby se aplikace v počítači přihlašovala na '
+                    'pokyn uživatele. Interval je vaše volba.',
                 trailing: DropdownButton<int>(
                   value: _st.syncMinutes,
                   underline: const SizedBox(),
                   borderRadius: BorderRadius.circular(8),
                   items: const [
-                    DropdownMenuItem(value: 0, child: Text('Nikdy')),
+                    DropdownMenuItem(value: 0, child: Text('Ručně')),
                     DropdownMenuItem(value: 5, child: Text('Každých 5 minut')),
                     DropdownMenuItem(
                       value: 15,

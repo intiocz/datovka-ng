@@ -53,12 +53,25 @@ pub(crate) fn from_elements(elements: &[&Element]) -> Envelope {
         qtimestamp_b64: text("dmQTimestamp").map(|v| v.split_whitespace().collect()),
         atts_num: text("attsNum").and_then(|v| v.parse().ok()),
         vodz: text("dmVODZ").map(|v| v == "true" || v == "1"),
+        spec_mess_flag: attr("specMessFlag").and_then(|v| v.parse().ok()),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_suspicious_mark() {
+        let doc = crate::xml::parse(
+            br#"<dmRecord specMessFlag="1" dmID="42"><dmAnnotation>x</dmAnnotation></dmRecord>"#,
+        )
+        .unwrap();
+        let e = from_elements(&[&doc]);
+        assert_eq!((e.dm_id.as_str(), e.spec_mess_flag), ("42", Some(1)));
+        let plain = crate::xml::parse(b"<dmRecord dmID=\"43\"/>").unwrap();
+        assert_eq!(from_elements(&[&plain]).spec_mess_flag, None);
+    }
 
     #[test]
     fn parses_times() {
