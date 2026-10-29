@@ -87,7 +87,12 @@ Logo vlevo nahoře kreslí `_Mark` v `app/lib/ui/sidebar.dart` podle
 
 Značka `v*` (třeba `v1.0.1`) na GitHubu spustí `.github/workflows/release.yml`.
 Ten k vydání přiloží `DatovkaNG-macos.zip`, `DatovkaNG-linux-amd64.deb`
-a `DatovkaNG-windows-amd64.zip`. Verze ve značce má odpovídat `version:`
+`DatovkaNG-windows-amd64.zip` a `DatovkaNG-android.apk`, text vydání vezme
+z `docs/vydani/<značka>.md`. APK podepisuje klíč ze secrets
+`ANDROID_KEYSTORE_B64` a `ANDROID_KEY_PASSWORD` (originál je mimo repozitář
+v `~/.android-release/datovka-ng.jks`, heslo v Klíčence „Datovka NG Android
+podpisový klíč“); bez stejného klíče se nová verze nenainstaluje přes starou.
+Verze ve značce má odpovídat `version:`
 v `app/pubspec.yaml` a `appVersion` v `app/lib/data/updates.dart`. Aplikace
 porovná značku nejnovějšího vydání se svou verzí a nabídne aktualizaci.
 

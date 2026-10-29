@@ -8,7 +8,7 @@
 <h1 align="center">Datovka NG</h1>
 
 <p align="center">
-  Klient datových schránek (ISDS) pro Mac, iPhone, Linux a Windows.<br>
+  Klient datových schránek (ISDS) pro Mac, iPhone, Android, Linux a Windows.<br>
   Pracuje se stejným archivem jako původní Datovka, jen je rychlejší a přehlednější.
 </p>
 
@@ -71,6 +71,7 @@ Balíčky jsou u [vydání](https://github.com/intiocz/datovka-ng/releases):
 | macOS 12 a novější | `DatovkaNG-macos.zip` | rozbalit, přetáhnout do Aplikací, poprvé otevřít pravým tlačítkem → Otevřít |
 | Ubuntu, Debian, Mint | `DatovkaNG-linux-amd64.deb` | `sudo apt install ./DatovkaNG-linux-amd64.deb` |
 | Windows 10 a 11 | `DatovkaNG-windows-amd64.zip` | rozbalit a spustit `datovka-ng.exe` (zatím málo vyzkoušené) |
+| Android 7 a novější | `DatovkaNG-android.apk` | otevřít v telefonu a povolit instalaci (zkušebně) |
 | iPhone | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
 
 Aplikace se při startu podívá, jestli není novější vydání. Na Macu, Linuxu

@@ -1,6 +1,7 @@
 # Nahraje balíčky k vydání na GitHubu. Spouští se značkou v* (třeba v1.0.1).
 # Aplikace stahuje DatovkaNG-macos.zip, DatovkaNG-linux-amd64.deb
-# a DatovkaNG-windows-amd64.zip.
+# a DatovkaNG-windows-amd64.zip; DatovkaNG-android.apk se instaluje ručně.
+# Text vydání je docs/vydani/<značka>.md, ukazuje se i v aplikaci.
 name: release
 
 on:
@@ -83,11 +84,62 @@ jobs:
           name: windows-zip
           path: dist/DatovkaNG-windows-amd64.zip
 
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Jádro
+        run: |
+          ndk="$ANDROID_HOME/ndk/28.2.13676358"
+          [ -d "$ndk" ] || yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" > /dev/null
+          bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$bin/aarch64-linux-android24-clang"
+          export CC_aarch64_linux_android="$bin/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$bin/llvm-ar"
+          cargo build --release -p datovka-ffi --target aarch64-linux-android
+          mkdir -p app/android/app/src/main/jniLibs/arm64-v8a
+          cp target/aarch64-linux-android/release/libdatovka_ffi.so app/android/app/src/main/jniLibs/arm64-v8a/
+      # Every release with the same key, so a new version installs over the old one.
+      - name: Podpisový klíč
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ] || [ -z "$PASSWORD" ]; then
+            echo "::error::Chybí secrets ANDROID_KEYSTORE_B64 a ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+          echo "$KEYSTORE" | base64 -d > app/android/app/release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=datovka\nkeyPassword=%s\n' \
+            "$PASSWORD" "$PASSWORD" > app/android/key.properties
+      - name: Aplikace
+        working-directory: app
+        run: flutter build apk --release --target-platform android-arm64
+      - name: Balíček apk
+        run: |
+          mkdir -p dist
+          cp app/build/app/outputs/flutter-apk/app-release.apk dist/DatovkaNG-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/DatovkaNG-android.apk
+
   publish:
-    needs: [linux, macos, windows]
+    needs: [linux, macos, windows, android]
     runs-on: ubuntu-latest
     if: github.server_url == 'https://github.com'
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -96,7 +148,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/DatovkaNG-macos.zip dist/DatovkaNG-linux-amd64.deb dist/DatovkaNG-windows-amd64.zip \
+          notes="docs/vydani/${{ github.ref_name }}.md"
+          [ -f "$notes" ] || { echo "Balíčky Datovky NG. Program se nesmí prodávat." > /tmp/notes.md; notes=/tmp/notes.md; }
+          gh release create "${{ github.ref_name }}" dist/DatovkaNG-macos.zip dist/DatovkaNG-linux-amd64.deb \
+            dist/DatovkaNG-windows-amd64.zip dist/DatovkaNG-android.apk \
             --repo "${{ github.repository }}" \
-            --title "${{ github.ref_name }}" \
-            --notes "Balíčky Datovky NG. Program se nesmí prodávat."
+            --title "Datovka NG ${{ github.ref_name }}" \
+            --notes-file "$notes"

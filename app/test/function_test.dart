@@ -441,7 +441,7 @@ void main() {
     await tester.runAsync(() => Future.delayed(const Duration(seconds: 1)));
     await tester.pumpAndSettle();
     expect(find.textContaining('GitHub odpověděl chybou'), findsOneWidget);
-    expect(find.text('Máte nejnovější verzi 1.0.0.'), findsNothing);
+    expect(find.text('Máte nejnovější verzi $appVersion.'), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
   });
 
