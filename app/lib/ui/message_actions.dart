@@ -211,15 +211,15 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
             children: [
               Text(
                 ok
-                    ? 'Uložený originál odpovídá zprávě v ISDS.'
-                    : 'Uložený originál se liší od zprávy v ISDS!',
+                    ? 'ISDS potvrdil, že uložený originál je pravý a nezměněný.'
+                    : 'ISDS uložený originál NEPOTVRDIL. Soubor není pravý nebo byl změněn.',
                 style: text.titleMedium?.copyWith(color: ok ? t.ok : t.danger),
               ),
               const SizedBox(height: 12),
               InfoView(
                 data: {
-                  'Algoritmus': d['algorithm'],
-                  'Otisk v ISDS': d['isds_hash'],
+                  'Služba ISDS': d['method'],
+                  'Algoritmus otisku': d['algorithm'],
                   'Otisk originálu': d['local_hash'],
                 },
               ),
