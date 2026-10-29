@@ -173,9 +173,19 @@ class AiSettings {
       if (File(p).existsSync()) return p;
     }
     if (Platform.isWindows) return null;
-    final r = await Process.run('/bin/zsh', ['-lc', 'command -v claude']);
-    final p = (r.stdout as String).trim();
-    return r.exitCode == 0 && p.isNotEmpty ? p : null;
+    // The login shell knows the user's PATH. Not every system has zsh
+    // (Linux usually has bash), so ask the user's own shell, or sh.
+    final shell = Platform.environment['SHELL'];
+    try {
+      final r = await Process.run(
+        shell != null && File(shell).existsSync() ? shell : '/bin/sh',
+        ['-lc', 'command -v claude'],
+      );
+      final p = (r.stdout as String).trim();
+      return r.exitCode == 0 && p.isNotEmpty ? p : null;
+    } on ProcessException {
+      return null;
+    }
   }
 
   /// Local Claude Code when it is installed, otherwise the API.
