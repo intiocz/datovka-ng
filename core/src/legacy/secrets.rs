@@ -67,7 +67,39 @@ mod store {
     }
 
     pub fn set(account: &str, password: &str) -> Result<()> {
-        entry(account)?.set_password(password).map_err(fail)
+        let first = entry(account)?.set_password(password);
+        // Linux without a default keyring (e.g. automatic login): create it
+        // and try once more.
+        #[cfg(target_os = "linux")]
+        if first.is_err() && create_keyring()? {
+            return entry(account)?.set_password(password).map_err(fail);
+        }
+        first.map_err(fail)
+    }
+
+    /// Creates the default Secret Service collection when there is none;
+    /// the system asks for a password for it, as for any other app. False
+    /// when it already exists, so the failure was something else.
+    #[cfg(target_os = "linux")]
+    fn create_keyring() -> Result<bool> {
+        use dbus_secret_service::{EncryptionType, Error as SsError, SecretService};
+        // Two minutes to answer the system dialog.
+        let ss = SecretService::connect_with_max_prompt_timeout(EncryptionType::Dh, 120)
+            .map_err(fail)?;
+        match ss.get_default_collection() {
+            Ok(_) => Ok(false),
+            Err(SsError::NoResult) => match ss.create_collection("Login", "default") {
+                Ok(_) => Ok(true),
+                Err(SsError::Prompt) => Err(Error::Isds {
+                    code: "keychain".into(),
+                    text: "heslo se neuložilo: systém se ptal na heslo k nové klíčence \
+                           a dotaz se zavřel. Zkuste to znovu a heslo klíčence zvolte."
+                        .into(),
+                }),
+                Err(e) => Err(fail(e)),
+            },
+            Err(e) => Err(fail(e)),
+        }
     }
 
     pub fn delete(account: &str) -> Result<()> {

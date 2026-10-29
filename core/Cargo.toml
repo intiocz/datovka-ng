@@ -33,5 +33,9 @@ reqwest = { workspace = true, features = ["native-tls"] }
 # Secret Service), never in the shared archive.
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
 
+# On Linux the default keyring is created when missing (keyring only uses it).
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus-secret-service = { version = "4.1", features = ["crypto-rust", "vendored"] }
+
 [dev-dependencies]
 tokio.workspace = true
