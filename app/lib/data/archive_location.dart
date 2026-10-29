@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
 import 'data_folder.dart';
 import 'user_error.dart';
 
 /// Where the archive lives.
 ///
-/// On a Mac and on an iPhone it is one package, `Archiv.datovka`. Finder and
+/// On a Mac, an iPhone and Android it is one package, `Archiv.datovka`. Finder and
 /// Files show it as a single item. Inside are the same files the original
 /// Datovka uses, and the write lock that lets several launches read at once.
 /// When iCloud Drive is on, the package sits in its Documents folder, so it
@@ -24,6 +26,14 @@ class ArchiveLocation {
       return saved;
     }
     if (Platform.isMacOS) return _mac();
+    // Android keeps the archive in the app's own storage; another one comes
+    // in through Nástroje → Obnovit ze zálohy.
+    if (Platform.isAndroid) {
+      final docs = await getApplicationDocumentsDirectory();
+      final pkg = '${docs.path}/$packageName';
+      await Directory(pkg).create(recursive: true);
+      return pkg;
+    }
     // On a phone the archive normally comes from iCloud Drive: ask for it,
     // unless the user already started one in the phone itself.
     if (Platform.isIOS) {
@@ -111,6 +121,7 @@ class ArchiveLocation {
       return 'iCloud Drive';
     }
     if (isLegacy(dir)) return 'původní Datovka';
+    if (Platform.isAndroid) return 'v telefonu';
     if (dir.contains('/Documents/')) return 'Dokumenty';
     return 'složka archivu';
   }

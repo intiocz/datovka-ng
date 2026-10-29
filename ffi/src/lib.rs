@@ -958,8 +958,15 @@ fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<u64
 pub extern "C" fn dk_backup(dir: *const c_char, target: *const c_char) -> *mut c_char {
     respond((|| {
         let s = store(dir)?;
+        let target = arg(target)?;
+        // A file name ending in .zip gets one ZIP file, anything else a folder.
+        if target.to_lowercase().ends_with(".zip") {
+            let n = datovka_core::legacy::backup::zip_dir(s.dir(), std::path::Path::new(&target))
+                .map_err(e)?;
+            return Ok(json!({ "path": target, "files": n }));
+        }
         let stamp = chrono_like_now();
-        let out = std::path::Path::new(&arg(target)?).join(format!("DATOVKA-zaloha-{stamp}"));
+        let out = std::path::Path::new(&target).join(format!("DATOVKA-zaloha-{stamp}"));
         let n = copy_dir(s.dir(), &out).map_err(e)?;
         Ok(json!({ "path": out, "files": n }))
     })())
@@ -975,7 +982,17 @@ pub extern "C" fn dk_restore(
 ) -> *mut c_char {
     respond((|| {
         let s = store(dir)?;
-        let backup = std::path::PathBuf::from(arg(backup)?);
+        let picked = std::path::PathBuf::from(arg(backup)?);
+        // A ZIP is unpacked next to the data first; the safety copy goes there
+        // too, as a picked file may sit in a temporary folder (phones).
+        let beside = s.dir().parent().unwrap_or(s.dir()).to_path_buf();
+        let unpacked = beside.join(format!(".datovka-obnova-{}", chrono_like_now()));
+        let zipped = picked.is_file();
+        let backup = if zipped {
+            datovka_core::legacy::backup::unzip_backup(&picked, &unpacked).map_err(e)?
+        } else {
+            picked.clone()
+        };
         if !backup.join("dsgui.conf").exists() {
             return Err("vybraná složka není záloha DATOVKY (chybí dsgui.conf)".into());
         }
@@ -985,13 +1002,18 @@ pub extern "C" fn dk_restore(
                 return Err(format!("data právě upravuje zařízení {}", i.device))
             }
         };
-        let safety = backup
-            .parent()
-            .unwrap_or(&backup)
-            .join(format!("DATOVKA-pred-obnovou-{}", chrono_like_now()));
+        let safety = if zipped {
+            beside.clone()
+        } else {
+            backup.parent().unwrap_or(&backup).to_path_buf()
+        }
+        .join(format!("DATOVKA-pred-obnovou-{}", chrono_like_now()));
         copy_dir(s.dir(), &safety).map_err(e)?;
         let n = copy_dir(&backup, s.dir()).map_err(e)?;
         drop(l);
+        if zipped {
+            let _ = std::fs::remove_dir_all(&unpacked);
+        }
         Ok(json!({ "files": n, "safety_copy": safety }))
     })())
 }

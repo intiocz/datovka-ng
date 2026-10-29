@@ -41,7 +41,7 @@ Future<void> main() async {
     }
     CoreBridge.dataDir = dir;
     if (saved != dir) await prefs.setString('dataDir', dir);
-    if (_mobile) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       // An archive in iCloud Drive may not be on the phone yet.
       runApp(const _Loading('Stahuji archiv z iCloudu…'));
       await DataFolder.materialize(dir);

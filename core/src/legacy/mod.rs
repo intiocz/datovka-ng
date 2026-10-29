@@ -5,6 +5,7 @@
 //! schema and journal mode untouched. Connections are opened per operation and
 //! closed right after, so a synced folder (iCloud Drive) always sees complete files.
 
+pub mod backup;
 pub mod conf;
 mod extra;
 pub mod lock;

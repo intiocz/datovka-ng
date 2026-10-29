@@ -133,15 +133,29 @@ class ToolsMenu extends StatelessWidget {
           if (files.isEmpty) return;
           say(await s.importZfo([for (final f in files) f.path]));
         case _Tool.backup:
-          final dir = await getDirectoryPath(
-            confirmButtonText: 'Zálohovat sem',
-          );
-          if (dir == null) return;
-          say(await s.backup(dir));
+          // One ZIP file, easy to move to a phone or another computer.
+          final now = DateTime.now();
+          final name =
+              'Datovka-zaloha-${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}.zip';
+          if (Platform.isIOS || Platform.isAndroid) {
+            final path = s.tempPath(name);
+            if (path == null) return;
+            say(await s.backup(path));
+            await s.core?.openFile(path);
+            return;
+          }
+          final loc = await getSaveLocation(suggestedName: name);
+          if (loc == null) return;
+          say(await s.backup(loc.path));
         case _Tool.restore:
-          final dir = await getDirectoryPath(
-            confirmButtonText: 'Obnovit z této zálohy',
+          const backup = XTypeGroup(
+            label: 'Záloha Datovky',
+            extensions: ['zip'],
+            mimeTypes: ['application/zip'],
+            uniformTypeIdentifiers: ['public.zip-archive'],
           );
+          final f = await openFile(acceptedTypeGroups: [backup]);
+          final dir = f?.path;
           if (dir == null || !context.mounted) return;
           final ok = await showDialog<bool>(
             context: context,
@@ -149,7 +163,7 @@ class ToolsMenu extends StatelessWidget {
               title: const Text('Obnovit data ze zálohy?'),
               content: const Text(
                 'Soubory ze zálohy přepíšou současná data. Současná data se předtím '
-                'uloží vedle zálohy, takže o nic nepřijdete.',
+                'uloží vedle archivu (DATOVKA-pred-obnovou), takže o nic nepřijdete.',
               ),
               actions: [
                 TextButton(
