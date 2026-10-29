@@ -1011,6 +1011,7 @@ class AppState extends ChangeNotifier {
     sync = SyncState(
       lastSync: sync.lastSync,
       running: true,
+      storageName: sync.storageName,
       skipped: sync.skipped,
     );
     notifyListeners();
@@ -1018,6 +1019,7 @@ class AppState extends ChangeNotifier {
       await Future<void>.delayed(const Duration(milliseconds: 1400));
       sync = SyncState(
         lastSync: DateTime.now(),
+        storageName: sync.storageName,
         skipped: [
           for (final b in boxes)
             if (!b.canSyncUnattended) b.id,
@@ -1116,6 +1118,7 @@ class AppState extends ChangeNotifier {
     ];
     sync = SyncState(
       lastSync: sync.lastSync,
+      storageName: sync.storageName,
       skipped: sync.skipped.where((id) => id != boxId).toList(),
     );
     notifyListeners();

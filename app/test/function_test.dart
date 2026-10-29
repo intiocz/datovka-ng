@@ -582,4 +582,14 @@ void main() {
     expect(state.boxes.length, count - 1);
     expect(state.boxes.any((b) => b.id == box.id), isFalse);
   });
+
+  test('a download keeps saying where the archive is', () async {
+    final state = _sample();
+    state.sync = const SyncState(storageName: 'původní Datovka');
+    final run = state.runSync();
+    expect(state.sync.running, isTrue);
+    expect(state.sync.storageName, 'původní Datovka');
+    await run;
+    expect(state.sync.storageName, 'původní Datovka');
+  });
 }
