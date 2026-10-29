@@ -89,6 +89,11 @@ pub async fn redownload(
     Ok(())
 }
 
+/// ISDS 1229: the message has not reached the recipient's box yet.
+fn not_delivered_yet(e: &Error) -> bool {
+    matches!(e, Error::Isds { code, .. } if code == "1229")
+}
+
 /// Like [`sync_account`] with an already logged-in client (e.g. a mobile key session).
 pub async fn sync_with(
     client: &Client,
@@ -129,6 +134,9 @@ pub async fn sync_with(
             };
             let zfo = match zfo {
                 Ok(z) => z,
+                // A sent message ISDS has not yet delivered cannot be
+                // downloaded; the next sync takes it.
+                Err(e) if not_delivered_yet(&e) => continue,
                 Err(e) => {
                     report.errors.push(format!("{}: {e}", env.dm_id));
                     continue;
@@ -146,4 +154,20 @@ pub async fn sync_with(
         }
     }
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_message_not_yet_delivered_is_no_error() {
+        let wait = Error::Isds {
+            code: "1229".into(),
+            text: "Zpráva dosud nebyla dodána do schránky příjemce.".into(),
+        };
+        assert!(not_delivered_yet(&wait));
+        let other = Error::Isds { code: "1219".into(), text: "x".into() };
+        assert!(!not_delivered_yet(&other));
+    }
 }
