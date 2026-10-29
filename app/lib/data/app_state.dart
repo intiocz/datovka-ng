@@ -111,6 +111,7 @@ class AppState extends ChangeNotifier {
   }
 
   Timer? _timer;
+  bool _disposed = false;
   Settings settings = const Settings();
 
   /// Applies preferences; restarts the automatic download timer.
@@ -138,6 +139,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _timer?.cancel();
     _searchTimer?.cancel();
     searchFocus.dispose();
@@ -1483,7 +1485,11 @@ class AppState extends ChangeNotifier {
     required DataBox from,
     required Map<String, Object?> envelope,
     required List<String> files,
-  }) async => await _send(from, {...envelope, 'files': files}) as String;
+  }) async {
+    final id = await _send(from, {...envelope, 'files': files}) as String;
+    _fetchSent(from, 1);
+    return id;
+  }
 
   /// Sends one message to several recipients in one ISDS call
   /// (`CreateMultipleMessage`); returns the new message ID or the error for
@@ -1515,7 +1521,48 @@ class AppState extends ChangeNotifier {
         ),
     ];
     if (expired) notifyListeners();
+    final sent = list.where((e) => e.id != null).length;
+    if (sent > 0) _fetchSent(from, sent);
     return list;
+  }
+
+  /// Pauses before each look for just-sent messages. ISDS delivers within
+  /// seconds as a rule; until then the message cannot be downloaded.
+  static const sentFetchDelays = [
+    Duration(seconds: 5),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+    Duration(minutes: 2),
+    Duration(minutes: 5),
+  ];
+
+  /// Downloads [count] messages just sent from [from] as soon as ISDS has
+  /// delivered them (see [Settings.fetchSentNow]). Quiet: failures wait for
+  /// the regular download.
+  Future<void> _fetchSent(DataBox from, int count) async {
+    final c = core;
+    if (c == null || !settings.fetchSentNow) return;
+    var got = 0;
+    for (final pause in sentFetchDelays) {
+      await Future<void>.delayed(pause);
+      if (_disposed) return;
+      if (sync.running) continue;
+      try {
+        final r = await c.callAsync('sync', [
+          '',
+          from.username,
+          c.deviceName,
+        ]) as Map<String, dynamic>;
+        got += r['new_sent'] as int;
+        if (_disposed) return;
+        await reload();
+        notifyListeners();
+      } on Object {
+        // The regular download will try again.
+      }
+      if (got >= count) return;
+    }
   }
 
   Future<dynamic> _send(DataBox from, Map<String, Object?> request) async {

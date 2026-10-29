@@ -16,11 +16,16 @@ class Settings {
   /// Proxy URL; empty uses the system settings.
   final String proxy;
 
+  /// After sending, look into ISDS again shortly until the sent message is
+  /// delivered and downloaded, instead of waiting for the next download.
+  final bool fetchSentNow;
+
   const Settings({
     this.syncMinutes = 15,
     this.syncOnStart = true,
     this.markReadInIsds = false,
     this.proxy = '',
+    this.fetchSentNow = true,
   });
 
   static Future<Settings> load() async {
@@ -30,6 +35,7 @@ class Settings {
       syncOnStart: p.getBool('syncOnStart') ?? true,
       markReadInIsds: p.getBool('markReadInIsds') ?? false,
       proxy: p.getString('proxy') ?? '',
+      fetchSentNow: p.getBool('fetchSentNow') ?? true,
     );
   }
 
@@ -39,6 +45,7 @@ class Settings {
     await p.setBool('syncOnStart', syncOnStart);
     await p.setBool('markReadInIsds', markReadInIsds);
     await p.setString('proxy', proxy);
+    await p.setBool('fetchSentNow', fetchSentNow);
   }
 
   Settings copyWith({
@@ -46,10 +53,12 @@ class Settings {
     bool? syncOnStart,
     bool? markReadInIsds,
     String? proxy,
+    bool? fetchSentNow,
   }) => Settings(
     syncMinutes: syncMinutes ?? this.syncMinutes,
     syncOnStart: syncOnStart ?? this.syncOnStart,
     markReadInIsds: markReadInIsds ?? this.markReadInIsds,
     proxy: proxy ?? this.proxy,
+    fetchSentNow: fetchSentNow ?? this.fetchSentNow,
   );
 }

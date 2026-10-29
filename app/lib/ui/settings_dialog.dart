@@ -326,6 +326,17 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ),
               ),
               _Row(
+                title: 'Odeslanou zprávu stáhnout hned',
+                subtitle:
+                    'Po odeslání se Datovka několikrát po sobě podívá do ISDS, '
+                    'dokud zprávu nedodá, a hned ji stáhne.',
+                trailing: Switch(
+                  value: _st.fetchSentNow,
+                  onChanged: (v) =>
+                      setState(() => _st = _st.copyWith(fetchSentNow: v)),
+                ),
+              ),
+              _Row(
                 title: 'Označovat přečtení i v ISDS',
                 subtitle: 'Otevřená zpráva bude přečtená i na portálu datových schránek.',
                 trailing: Switch(
