@@ -119,6 +119,15 @@ class _ComposeState extends State<_Compose> {
   DataBox? _from;
   Timer? _debounce;
 
+  /// Recipients that cannot receive messages (`CheckDataBox`), with why.
+  final _inaccessible = <String, String>{};
+  final _checks = <String, Future<void>>{};
+
+  /// Commercial messages the sender can send, by `sender/recipient`
+  /// (`PDZSendInfo`).
+  final _pdz = <String, ({bool normal, bool init})>{};
+  final _pdzChecks = <String, Future<void>>{};
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -129,7 +138,56 @@ class _ComposeState extends State<_Compose> {
           boxes.where((b) => b.id == widget.draft.fromBoxId).firstOrNull ??
           boxes.where((b) => b.id == s.boxId).firstOrNull ??
           boxes.firstOrNull;
+      _checkRecipients();
     }
+  }
+
+  /// Asks ISDS in the background whether the recipients are accessible and
+  /// which commercial messages can go to them; each pair only once.
+  void _checkRecipients() {
+    final s = AppScope.of(context);
+    final from = _from;
+    if (from == null) return;
+    for (final r in _recipients) {
+      _checks.putIfAbsent(r.boxId, () async {
+        final why = await s.recipientProblem(from, r.boxId);
+        if (why != null && mounted) {
+          setState(() => _inaccessible[r.boxId] = why);
+        }
+      });
+      final key = '${from.id}/${r.boxId}';
+      _pdzChecks.putIfAbsent(key, () async {
+        final p = await s.pdzOptions(from, r.boxId);
+        if (p != null && mounted) setState(() => _pdz[key] = p);
+      });
+    }
+  }
+
+  /// Commercial messages the sender can send to all recipients; null while
+  /// unknown, and then all types are offered as before.
+  ({bool normal, bool init})? get _pdzAllowed {
+    final from = _from;
+    if (from == null || _recipients.isEmpty) return null;
+    var normal = true;
+    var init = true;
+    for (final r in _recipients) {
+      final p = _pdz['${from.id}/${r.boxId}'];
+      if (p == null) return null;
+      normal &= p.normal;
+      init &= p.init;
+    }
+    return (normal: normal, init: init);
+  }
+
+  /// The chosen commercial message type is one ISDS will not send.
+  bool get _pdzBlocked {
+    final pdz = _pdzAllowed;
+    return pdz != null &&
+        switch (_dmType) {
+          null => false,
+          'I' => !pdz.init,
+          _ => !pdz.normal,
+        };
   }
 
   @override
@@ -176,6 +234,7 @@ class _ComposeState extends State<_Compose> {
       _lookup.clear();
       AppScope.of(context).directoryResults = null;
     });
+    _checkRecipients();
   }
 
   void _onLookup(String q) {
@@ -230,6 +289,7 @@ class _ComposeState extends State<_Compose> {
       if (_recipients.isEmpty) 'přidejte adresáta',
       if (_subject.text.trim().isEmpty) 'vyplňte věc',
       if (_files.isEmpty) 'přidejte aspoň jeden dokument',
+      if (_pdzBlocked) 'zvolený typ poštovní zprávy ISDS nedovolí',
     ];
     if (problems.isNotEmpty) {
       setState(() => _error = 'Nelze odeslat: ${problems.join(', ')}.');
@@ -239,18 +299,59 @@ class _ComposeState extends State<_Compose> {
       _sending = true;
       _error = null;
     });
+    // A box that cannot receive anything would only fail in ISDS.
+    await Future.wait([for (final r in _recipients) ?_checks[r.boxId]]);
+    if (!mounted) return;
+    final closed = [
+      for (final r in _recipients)
+        if (_inaccessible[r.boxId] case final why?) '${_who(r)}: $why',
+    ];
+    if (closed.isNotEmpty) {
+      setState(() {
+        _sending = false;
+        _error =
+            'Nelze odeslat, adresát nemůže přijímat zprávy (${closed.join('; ')}). '
+            'Odeberte ho a odešlete znovu.';
+      });
+      return;
+    }
     final sent = <String>[];
     final failed = <Recipient, String>{};
-    for (final r in _recipients) {
+    final files = [for (final f in _files) f.path];
+    if (_recipients.length > 1 && _dmType == null) {
+      // One call for all recipients; ISDS makes a message for each.
       try {
-        final id = await s.send(
+        final results = await s.sendToMany(
           from: from!,
-          envelope: _envelope(r.boxId),
-          files: [for (final f in _files) f.path],
+          envelope: _envelope(''),
+          recipients: [for (final r in _recipients) r.boxId],
+          files: files,
         );
-        sent.add('${_who(r)}: $id');
+        for (final r in _recipients) {
+          final x = results.where((e) => e.boxId == r.boxId).firstOrNull;
+          if (x?.id case final id?) {
+            sent.add('${_who(r)}: $id');
+          } else {
+            failed[r] = x?.error ?? 'ISDS o adresátovi nic nevrátil';
+          }
+        }
       } on Object catch (e) {
-        failed[r] = '$e';
+        for (final r in _recipients) {
+          failed[r] = '$e';
+        }
+      }
+    } else {
+      for (final r in _recipients) {
+        try {
+          final id = await s.send(
+            from: from!,
+            envelope: _envelope(r.boxId),
+            files: files,
+          );
+          sent.add('${_who(r)}: $id');
+        } on Object catch (e) {
+          failed[r] = '$e';
+        }
       }
     }
     unawaited(s.runSync());
@@ -288,6 +389,15 @@ class _ComposeState extends State<_Compose> {
     final isdsHits = q.length >= 3
         ? (s.directoryResults ?? const <DirectoryEntry>[])
         : const <DirectoryEntry>[];
+    // Commercial types only when ISDS says they can go to all recipients;
+    // a type already chosen stays in the list.
+    final pdz = _pdzAllowed;
+    bool offer(String type, bool? ok) => ok != false || _dmType == type;
+    final pdzNote = !_pdzBlocked
+        ? null
+        : pdz!.normal
+        ? 'Iniciační poštovní zprávu lze poslat jen se smlouvou na poštovní zprávy.'
+        : 'Poštovní datovou zprávu ISDS z této schránky adresátovi teď poslat nedovolí, zvolte běžnou zprávu.';
 
     Widget field(
       String label,
@@ -334,7 +444,10 @@ class _ComposeState extends State<_Compose> {
                   child: Text('${b.name} (${b.isdsId ?? b.id})'),
                 ),
             ],
-            onChanged: (b) => setState(() => _from = b),
+            onChanged: (b) {
+              setState(() => _from = b);
+              _checkRecipients();
+            },
           ),
         const SizedBox(height: 16),
         Text('Komu', style: text.bodySmall),
@@ -345,6 +458,10 @@ class _ComposeState extends State<_Compose> {
           children: [
             for (final r in _recipients)
               InputChip(
+                avatar: _inaccessible.containsKey(r.boxId)
+                    ? Icon(Icons.warning_amber, size: 18, color: t.danger)
+                    : null,
+                tooltip: _inaccessible[r.boxId],
                 label: Text(
                   r.name.isEmpty ? r.boxId : '${r.name} (${r.boxId})',
                 ),
@@ -352,6 +469,15 @@ class _ComposeState extends State<_Compose> {
               ),
           ],
         ),
+        for (final r in _recipients)
+          if (_inaccessible[r.boxId] case final why?)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${_who(r)} nemůže přijímat zprávy: $why.',
+                style: text.bodySmall?.copyWith(color: t.danger),
+              ),
+            ),
         const SizedBox(height: 6),
         TextField(
           controller: _lookup,
@@ -443,23 +569,34 @@ class _ComposeState extends State<_Compose> {
           DropdownButtonFormField<String?>(
             initialValue: _dmType,
             decoration: const InputDecoration(labelText: 'Typ zprávy'),
-            items: const [
-              DropdownMenuItem(value: null, child: Text('Běžná zpráva')),
-              DropdownMenuItem(
-                value: 'I',
-                child: Text('Iniciační poštovní zpráva (odpověď platíte vy)'),
-              ),
-              DropdownMenuItem(
-                value: 'O',
-                child: Text('Odpověď na iniciační poštovní zprávu'),
-              ),
-              DropdownMenuItem(
-                value: 'K',
-                child: Text('Poštovní zpráva na základě smlouvy'),
-              ),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Běžná zpráva')),
+              if (offer('I', pdz?.init))
+                const DropdownMenuItem(
+                  value: 'I',
+                  child: Text('Iniciační poštovní zpráva (odpověď platíte vy)'),
+                ),
+              if (offer('O', pdz?.normal))
+                const DropdownMenuItem(
+                  value: 'O',
+                  child: Text('Odpověď na iniciační poštovní zprávu'),
+                ),
+              if (offer('K', pdz?.normal))
+                const DropdownMenuItem(
+                  value: 'K',
+                  child: Text('Poštovní zpráva na základě smlouvy'),
+                ),
             ],
             onChanged: (v) => setState(() => _dmType = v),
           ),
+          if (pdzNote != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                pdzNote,
+                style: text.bodySmall?.copyWith(color: t.warn),
+              ),
+            ),
           const SizedBox(height: 8),
           _Check(
             'Zveřejnit mou identitu adresátovi',

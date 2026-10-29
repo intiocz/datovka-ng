@@ -1457,7 +1457,10 @@ class AppState extends ChangeNotifier {
             type: _boxKind(e['box_type'] as String?),
             ico: e['ico'] as String?,
             isAuthority: e['is_authority'] as bool? ?? false,
-            acceptsCommercial: (e['send_options'] as String?) == 'ALL',
+            acceptsCommercial: const {
+              'ALL',
+              'PDZ',
+            }.contains(e['send_options'] as String?),
           ),
       ];
     } on Object catch (e) {
@@ -1480,17 +1483,54 @@ class AppState extends ChangeNotifier {
     required DataBox from,
     required Map<String, Object?> envelope,
     required List<String> files,
+  }) async => await _send(from, {...envelope, 'files': files}) as String;
+
+  /// Sends one message to several recipients in one ISDS call
+  /// (`CreateMultipleMessage`); returns the new message ID or the error for
+  /// each recipient.
+  Future<List<({String boxId, String? id, String? error})>> sendToMany({
+    required DataBox from,
+    required Map<String, Object?> envelope,
+    required List<String> recipients,
+    required List<String> files,
   }) async {
+    final r = await _send(from, {
+      ...envelope,
+      'recipients': recipients,
+      'files': files,
+    });
+    var expired = false;
+    String? error(String? t) {
+      if (t == null || !_expired(from, t)) return t;
+      expired = true;
+      return 'přihlášení ke schránce ${from.name} vypršelo';
+    }
+
+    final list = [
+      for (final e in (r as List).cast<Map<String, dynamic>>())
+        (
+          boxId: e['box_id'] as String,
+          id: e['dm_id'] as String?,
+          error: error(e['error'] as String?),
+        ),
+    ];
+    if (expired) notifyListeners();
+    return list;
+  }
+
+  Future<dynamic> _send(DataBox from, Map<String, Object?> request) async {
     final c = core;
     if (c == null) {
       throw UserError(
         'V náhledu nelze odesílat, spusťte desktopovou aplikaci.',
       );
     }
-    final request = jsonEncode({...envelope, 'files': files});
-    final String id;
     try {
-      id = await c.callAsync('send', ['', from.username, request]) as String;
+      return await c.callAsync('send', [
+        '',
+        from.username,
+        jsonEncode(request),
+      ]);
     } on Object catch (e) {
       if (_expired(from, e)) {
         notifyListeners();
@@ -1500,7 +1540,52 @@ class AppState extends ChangeNotifier {
       }
       rethrow;
     }
-    return id;
+  }
+
+  /// Why [boxId] cannot receive messages (`CheckDataBox`); null when it can,
+  /// or when ISDS could not tell (the check never stops sending by itself).
+  Future<String?> recipientProblem(DataBox from, String boxId) async {
+    final r = await _quietOp(from, 'check_box', {'recipient': boxId});
+    if (r is! Map || r['active'] != false) return null;
+    return r['text'] as String?;
+  }
+
+  /// Commercial messages (PDZ) [from] can send to [boxId] (`PDZSendInfo`):
+  /// any PDZ, and an initiating one. Null when ISDS could not tell.
+  Future<({bool normal, bool init})?> pdzOptions(
+    DataBox from,
+    String boxId,
+  ) async {
+    final normal = await _quietOp(from, 'pdz_send_info', {
+      'recipient': boxId,
+      'type': 'Normal',
+    });
+    if (normal is! bool) return null;
+    if (!normal) return (normal: false, init: false);
+    final init = await _quietOp(from, 'pdz_send_info', {
+      'recipient': boxId,
+      'type': 'Init',
+    });
+    return init is bool ? (normal: true, init: init) : null;
+  }
+
+  /// An ISDS operation for a hint in the background: null on any error and
+  /// no side effects (an expired login is reported by the actual sending).
+  Future<dynamic> _quietOp(
+    DataBox box,
+    String name,
+    Map<String, Object?> args,
+  ) async {
+    try {
+      return await core?.callAsync('op', [
+        '',
+        box.username,
+        name,
+        jsonEncode(args),
+      ]);
+    } on Object {
+      return null;
+    }
   }
 
   /// People and offices from received and sent messages, most frequent
