@@ -559,4 +559,27 @@ void main() {
     expect(ys, [...ys]..sort());
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets('a box can be removed from its menu', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = _sample();
+    await tester.pumpWidget(DatovkaApp(state: state));
+    final box = state.boxes.last;
+    final count = state.boxes.length;
+    await tester.tap(
+      find.descendant(of: find.byType(Sidebar), matching: find.text(box.name)),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Odebrat schránku…'));
+    await tester.pumpAndSettle();
+    expect(find.text('Odebrat schránku ${box.name}?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Odebrat'));
+    await tester.pumpAndSettle();
+    expect(state.boxes.length, count - 1);
+    expect(state.boxes.any((b) => b.id == box.id), isFalse);
+  });
 }

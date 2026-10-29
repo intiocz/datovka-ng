@@ -526,6 +526,8 @@ Future<void> _boxMenu(BuildContext context, Offset pos, DataBox b) async {
         value: 'write',
         child: Text('Napsat zprávu z této schránky'),
       ),
+      const PopupMenuDivider(),
+      const PopupMenuItem(value: 'remove', child: Text('Odebrat schránku…')),
     ],
   );
   if (!context.mounted) return;
@@ -564,10 +566,6 @@ Future<void> _boxMenu(BuildContext context, Offset pos, DataBox b) async {
         ),
       );
       if (ok == true) s.removeBox(b);
-    case 'up' || 'down':
-      final i = s.boxes.indexWhere((x) => x.id == b.id);
-      final to = choice == 'up' ? i - 1 : i + 1;
-      if (i >= 0 && to >= 0 && to < s.boxes.length) s.moveBox(i, to);
   }
 }
 
