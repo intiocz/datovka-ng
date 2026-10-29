@@ -2,7 +2,7 @@
 //! credit, data vault, users, password. Results are JSON for display.
 
 use base64::Engine;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use super::{Client, Service};
 use crate::error::{Error, Result};
@@ -120,6 +120,111 @@ pub fn zfo_hash(zfo: &[u8]) -> Result<(String, Option<String>)> {
     ))
 }
 
+/// `dmAuthResult` of `Authenticate[Big]Message` (xs:boolean).
+fn auth_result(body: &Element) -> Result<bool> {
+    match body.child_text("dmAuthResult").as_deref() {
+        Some("true" | "1") => Ok(true),
+        Some("false" | "0") => Ok(false),
+        _ => Err(Error::Xml("odpověď bez dmAuthResult".into())),
+    }
+}
+
+/// Whether a message ZFO is a high-volume message (`dmVODZ` in the envelope).
+fn is_vodz(zfo: &[u8]) -> bool {
+    crate::zfo::parse_message(zfo).is_ok_and(|m| m.envelope.vodz == Some(true))
+}
+
+/// `dbState` of `CheckDataBoxResponse`.
+fn box_state(body: &Element) -> Result<u8> {
+    body.child_text("dbState")
+        .and_then(|s| s.parse().ok())
+        .filter(|s| *s > 0)
+        .ok_or_else(|| Error::Xml("odpověď bez stavu schránky".into()))
+}
+
+/// Czech description of a `CheckDataBox` state.
+pub fn box_state_text(state: u8) -> &'static str {
+    match state {
+        1 => "schránka je přístupná",
+        2 => "schránka je dočasně znepřístupněná",
+        3 => "schránka ještě není zpřístupněná",
+        4 => "schránka je trvale znepřístupněná",
+        5 => "schránka je zrušená",
+        _ => "stav schránky je neznámý",
+    }
+}
+
+fn pdz_send_info_body(box_id: &str, kind: &str) -> String {
+    format!(
+        "<isds:dbId>{}</isds:dbId><isds:PDZType>{}</isds:PDZType>",
+        escape(box_id.trim()),
+        escape(kind)
+    )
+}
+
+/// Namespace and path of the password service for OTP logins.
+const ASWS_NS: &str = "http://isds.czechpoint.cz/v20/asws";
+const ASWS_PATH: &str = "asws/changePassword";
+
+/// Second factor of a password change for a box logging in with a code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Otp {
+    /// Code from an SMS (TOTP).
+    Sms,
+    /// Code from an app or token (HOTP).
+    App,
+}
+
+fn change_password_otp_body(old: &str, new: &str, otp: Otp) -> String {
+    format!(
+        "<isds:dbOldPassword>{}</isds:dbOldPassword><isds:dbNewPassword>{}</isds:dbNewPassword><isds:dbOTPType>{}</isds:dbOTPType>",
+        escape(old),
+        escape(new),
+        if otp == Otp::Sms { "TOTP" } else { "HOTP" }
+    )
+}
+
+/// Client of the password service: name and password (plus the code) go
+/// straight to it with each request, no session.
+fn asws_client(username: &str, secret: String, test_env: bool) -> Result<(Client, String)> {
+    let www = if test_env { super::TEST_WWW } else { super::PROD_WWW };
+    let c = Client {
+        http: super::http_client(false)?,
+        base: www.to_string(),
+        vodz_base: www.to_string(),
+        basic: Some((username.to_string(), secret)),
+    };
+    Ok((c, format!("{www}{ASWS_PATH}")))
+}
+
+/// Has ISDS send an SMS code for [`change_password_otp`] (`SendSMSCode`).
+pub async fn send_sms_code(username: &str, password: &str, test_env: bool) -> Result<()> {
+    let (c, url) = asws_client(username, password.to_string(), test_env)?;
+    c.call_ns(&url, ASWS_NS, "SendSMSCode", "").await?;
+    Ok(())
+}
+
+/// Changes the password of a box that logs in with password and code
+/// (`ChangePasswordOTP`); the old password and the code authenticate it.
+pub async fn change_password_otp(
+    username: &str,
+    old: &str,
+    new: &str,
+    code: &str,
+    otp: Otp,
+    test_env: bool,
+) -> Result<()> {
+    let (c, url) = asws_client(username, format!("{old}{}", code.trim()), test_env)?;
+    c.call_ns(
+        &url,
+        ASWS_NS,
+        "ChangePasswordOTP",
+        &change_password_otp_body(old, new, otp),
+    )
+    .await?;
+    Ok(())
+}
+
 /// Fields of `tDbUserInfoExt2` in schema order.
 const USER_FIELDS: &[&str] = &[
     "aifoIsds",
@@ -204,23 +309,6 @@ impl Client {
         Ok(without_status(to_json(&r.body)))
     }
 
-    /// Compares the hash ISDS keeps for the message with the local ZFO.
-    pub async fn verify_message(&self, id: &str, zfo: &[u8]) -> Result<Value> {
-        let r = self.call(Service::Dx, "VerifyMessage", &dm_id(id)).await?;
-        let isds = r
-            .body
-            .find("dmHash")
-            .map(|h| h.text.split_whitespace().collect::<String>())
-            .ok_or_else(|| Error::Xml("odpověď bez dmHash".into()))?;
-        let (local, algorithm) = zfo_hash(zfo)?;
-        Ok(json!({
-            "match": isds.eq_ignore_ascii_case(&local),
-            "isds_hash": isds,
-            "local_hash": local,
-            "algorithm": algorithm,
-        }))
-    }
-
     /// Lets ISDS confirm that a ZFO file is an authentic, unaltered message.
     pub async fn authenticate_message(&self, zfo: &[u8]) -> Result<bool> {
         let inner = format!(
@@ -230,7 +318,41 @@ impl Client {
         let r = self
             .call(Service::Dz, "AuthenticateMessage", &inner)
             .await?;
-        Ok(r.body.child_text("dmAuthResult").as_deref() == Some("true"))
+        auth_result(&r.body)
+    }
+
+    /// [`authenticate_message`](Self::authenticate_message), or
+    /// `AuthenticateBigMessage` for a high-volume message (ISDS refuses the
+    /// other one). Returns the result and the operation used.
+    pub async fn authenticate_any(&self, zfo: &[u8]) -> Result<(bool, &'static str)> {
+        if is_vodz(zfo) {
+            let ok = self.authenticate_big_message(zfo).await?;
+            Ok((ok, "AuthenticateBigMessage"))
+        } else {
+            Ok((self.authenticate_message(zfo).await?, "AuthenticateMessage"))
+        }
+    }
+
+    /// State of a data box (`CheckDataBox`): 1 accessible, 2 temporarily
+    /// inaccessible, 3 not yet accessible, 4 permanently inaccessible,
+    /// 5 deleted. Only 1 can receive messages.
+    pub async fn check_box(&self, box_id: &str) -> Result<u8> {
+        let inner = format!("<isds:dbID>{}</isds:dbID>", escape(box_id.trim()));
+        let r = self.call(Service::Df, "CheckDataBox", &inner).await?;
+        box_state(&r.body)
+    }
+
+    /// Whether this box can send a commercial message (PDZ) to `box_id`
+    /// (`PDZSendInfo`). `kind` is `Normal`, `Init` (initiating, needs a
+    /// contract) or `VoDZ`.
+    pub async fn pdz_send_info(&self, box_id: &str, kind: &str) -> Result<bool> {
+        let r = self
+            .call(Service::Df, "PDZSendInfo", &pdz_send_info_body(box_id, kind))
+            .await?;
+        Ok(matches!(
+            r.body.child_text("PDZsiResult").as_deref(),
+            Some("true" | "1")
+        ))
     }
 
     /// Has ISDS re-sign a stored ZFO with a fresh time stamp (the original's
@@ -388,6 +510,7 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn converts_xml_to_json() {
@@ -410,6 +533,79 @@ mod tests {
         assert!(i("aifoIsds") < i("pnLastName") && i("pnLastName") < i("userPrivils"));
         assert!(x.contains("<isds:userPrivils>255</isds:userPrivils>"));
         assert!(x.contains(r#"<isds:caState xsi:nil="true"/>"#));
+    }
+
+    fn parse(xml: &str) -> Element {
+        crate::xml::parse(xml.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn reads_box_state() {
+        // WS_vyhledavani_datovych_schranek, chapter 2.3.
+        let ok = parse(
+            r#"<p:CheckDataBoxResponse xmlns:p="http://isds.czechpoint.cz/v20">
+              <p:dbState>1</p:dbState>
+              <p:dbStatus><p:dbStatusCode>0000</p:dbStatusCode>
+              <p:dbStatusMessage>Provedeno úspěšně.</p:dbStatusMessage></p:dbStatus>
+            </p:CheckDataBoxResponse>"#,
+        );
+        assert_eq!(box_state(&ok).unwrap(), 1);
+        let gone = parse("<r><dbState>5</dbState></r>");
+        assert_eq!(box_state(&gone).unwrap(), 5);
+        assert_eq!(box_state_text(5), "schránka je zrušená");
+        assert!(box_state(&parse("<r><dbState>0</dbState></r>")).is_err());
+        let missing = parse(
+            r#"<p:CheckDataBoxResponse xmlns:p="http://isds.czechpoint.cz/v20">
+              <p:dbStatus><p:dbStatusCode>5001</p:dbStatusCode>
+              <p:dbStatusMessage>Schránka neexistuje</p:dbStatusMessage></p:dbStatus>
+            </p:CheckDataBoxResponse>"#,
+        );
+        assert!(
+            matches!(super::super::check_status(&missing), Err(Error::Isds { code, .. }) if code == "5001")
+        );
+    }
+
+    #[test]
+    fn builds_pdz_send_info() {
+        let x = pdz_send_info_body(" abc1234 ", "Init");
+        assert_eq!(
+            x,
+            "<isds:dbId>abc1234</isds:dbId><isds:PDZType>Init</isds:PDZType>"
+        );
+        let r = parse(
+            r#"<p:PDZSendInfoResponse xmlns:p="http://isds.czechpoint.cz/v20">
+              <p:PDZsiResult>true</p:PDZsiResult>
+              <p:dbStatus><p:dbStatusCode>0000</p:dbStatusCode><p:dbStatusMessage/></p:dbStatus>
+            </p:PDZSendInfoResponse>"#,
+        );
+        assert_eq!(r.child_text("PDZsiResult").as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn reads_auth_result() {
+        assert!(auth_result(&parse("<r><dmAuthResult>true</dmAuthResult></r>")).unwrap());
+        assert!(auth_result(&parse("<r><dmAuthResult>1</dmAuthResult></r>")).unwrap());
+        assert!(!auth_result(&parse("<r><dmAuthResult>false</dmAuthResult></r>")).unwrap());
+        assert!(auth_result(&parse(r#"<r><dmAuthResult xsi:nil="true"/></r>"#)).is_err());
+        assert!(!is_vodz(b"not a zfo"));
+    }
+
+    #[test]
+    fn builds_change_password_otp() {
+        let x = change_password_otp_body("Staré<1", "Nové&2", Otp::Sms);
+        let doc = parse(&format!("<r>{}</r>", x.replace("isds:", "")));
+        let names: Vec<_> = doc.children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["dbOldPassword", "dbNewPassword", "dbOTPType"]);
+        assert_eq!(doc.child_text("dbOldPassword").as_deref(), Some("Staré<1"));
+        assert_eq!(doc.child_text("dbNewPassword").as_deref(), Some("Nové&2"));
+        assert_eq!(doc.child_text("dbOTPType").as_deref(), Some("TOTP"));
+        assert!(change_password_otp_body("a", "b", Otp::App).contains(">HOTP<"));
+        let (c, url) = asws_client("user", "heslo123456".into(), true).unwrap();
+        assert_eq!(url, "https://www.datovka-test.gov.cz/asws/changePassword");
+        assert_eq!(
+            c.basic,
+            Some(("user".to_string(), "heslo123456".to_string()))
+        );
     }
 
     #[test]

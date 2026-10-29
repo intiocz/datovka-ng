@@ -52,7 +52,7 @@ pub struct Credentials {
 pub enum Service {
     /// Message operations (download, send, authenticate): `DS/dz`.
     Dz,
-    /// Message info (lists, delivery info, marking as read, verify): `DS/dx`.
+    /// Message info (lists, delivery info, marking as read): `DS/dx`.
     Dx,
     DsManage,
     /// Data box directory search.
@@ -79,6 +79,8 @@ pub enum SearchType {
     Address,
     Ico,
     BoxId,
+    /// Identifier of a public authority (IdOVM, usually its IČO).
+    IdOvm,
 }
 
 impl SearchType {
@@ -88,6 +90,7 @@ impl SearchType {
             SearchType::Address => "ADDRESS",
             SearchType::Ico => "ICO",
             SearchType::BoxId => "DBID",
+            SearchType::IdOvm => "IDOVM",
         }
     }
 }
@@ -100,6 +103,9 @@ pub struct DirectoryEntry {
     pub name: Option<String>,
     pub address: Option<String>,
     pub ico: Option<String>,
+    /// Identifier of a public authority (IdOVM).
+    #[serde(default)]
+    pub id_ovm: Option<String>,
     /// Box of a public authority (orgán veřejné moci).
     pub is_authority: bool,
     /// Which kinds of messages the box accepts, e.g. `ALL`, `PDZ`, `NONE`.
@@ -215,6 +221,56 @@ fn opt_el(name: &str, v: &Option<String>) -> String {
 
 /// Request body of `CreateMessage`; element order follows the ISDS schema.
 pub(crate) fn create_message_body(m: &OutgoingMessage) -> String {
+    format!("{}{}", envelope_element(m), files_element(m))
+}
+
+/// Most recipients of one `CreateMultipleMessage` call.
+pub const MULTIPLE_MAX: usize = 50;
+
+/// Request body of `CreateMultipleMessage`: the recipients (each with the
+/// message's `K rukám`), then the envelope without recipient and the files.
+pub(crate) fn create_multiple_body(m: &OutgoingMessage, recipients: &[String]) -> String {
+    let to_hands = match opt_el("dmToHands", &m.to_hands) {
+        t if t.is_empty() => r#"<isds:dmToHands xsi:nil="true"/>"#.to_string(),
+        t => t,
+    };
+    let mut list = String::new();
+    for r in recipients {
+        list += &format!(
+            "<isds:dmRecipient><isds:dbIDRecipient>{}</isds:dbIDRecipient>{to_hands}</isds:dmRecipient>",
+            escape(r.trim())
+        );
+    }
+    format!(
+        "<isds:dmRecipients>{list}</isds:dmRecipients>{}{}",
+        envelope_xml(m, false),
+        files_element(m)
+    )
+}
+
+/// Result per recipient of `CreateMultipleMessageResponse`, in request order.
+fn parse_multiple(body: &Element, count: usize) -> Result<Vec<Result<String>>> {
+    let list: Vec<_> = body
+        .child("dmMultipleStatus")
+        .map(|m| m.children_named("dmSingleStatus").collect())
+        .unwrap_or_default();
+    if list.len() != count {
+        return Err(Error::Xml(format!(
+            "ISDS vrátil {} výsledků pro {count} adresátů",
+            list.len()
+        )));
+    }
+    Ok(list
+        .into_iter()
+        .map(|s| {
+            check_status(s)?;
+            s.child_text("dmID")
+                .ok_or_else(|| Error::Xml("odpověď bez dmID".into()))
+        })
+        .collect())
+}
+
+fn files_element(m: &OutgoingMessage) -> String {
     let mut files = String::new();
     for (i, f) in m.files.iter().enumerate() {
         files += &format!(
@@ -228,20 +284,25 @@ pub(crate) fn create_message_body(m: &OutgoingMessage) -> String {
             content = base64::engine::general_purpose::STANDARD.encode(&f.content),
         );
     }
-    format!(
-        "{}<isds:dmFiles>{files}</isds:dmFiles>",
-        envelope_element(m)
-    )
+    format!("<isds:dmFiles>{files}</isds:dmFiles>")
 }
 
 /// The `dmEnvelope` element shared by `CreateMessage` and `CreateBigMessage`.
 fn envelope_element(m: &OutgoingMessage) -> String {
+    envelope_xml(m, true)
+}
+
+/// `dmEnvelope`; without the recipient for `CreateMultipleMessage`, whose
+/// recipients (and their `K rukám`) are listed in `dmRecipients`.
+fn envelope_xml(m: &OutgoingMessage, with_recipient: bool) -> String {
     let mut env = String::new();
-    env += &format!(
-        "<isds:dbIDRecipient>{}</isds:dbIDRecipient>",
-        escape(m.recipient_box_id.trim())
-    );
-    env += &opt_el("dmToHands", &m.to_hands);
+    if with_recipient {
+        env += &format!(
+            "<isds:dbIDRecipient>{}</isds:dbIDRecipient>",
+            escape(m.recipient_box_id.trim())
+        );
+        env += &opt_el("dmToHands", &m.to_hands);
+    }
     env += &format!(
         "<isds:dmAnnotation>{}</isds:dmAnnotation>",
         escape(m.annotation.trim())
@@ -337,7 +398,7 @@ fn http_client(cookies: bool) -> Result<reqwest::Client> {
 
 /// Operations that only read or mark as read, so asking twice does no harm.
 fn safe_to_repeat(op: &str) -> bool {
-    ["Get", "MessageDownload", "MessageEnvelopeDownload", "Find", "ISDSSearch", "Check", "PDZInfo", "DataBoxCreditInfo", "MarkMessageAs", "PickUp", "Authenticate", "Verify", "SignedMessage", "SignedSent"]
+    ["Get", "MessageDownload", "MessageEnvelopeDownload", "Find", "ISDSSearch", "Check", "PDZInfo", "PDZSendInfo", "DataBoxCreditInfo", "MarkMessageAs", "PickUp", "Authenticate", "Verify", "SignedMessage", "SignedSent"]
         .iter()
         .any(|p| op.starts_with(p))
 }
@@ -619,6 +680,11 @@ impl Client {
 
     /// Sends a SOAP 1.1 request to a full service URL.
     async fn call_at(&self, url: &str, op: &str, inner: &str) -> Result<Response> {
+        self.call_ns(url, NS, op, inner).await
+    }
+
+    /// [`call_at`](Self::call_at) for a service with its own namespace.
+    async fn call_ns(&self, url: &str, ns: &str, op: &str, inner: &str) -> Result<Response> {
         let body = format!(
             concat!(
                 r#"<?xml version="1.0" encoding="UTF-8"?>"#,
@@ -626,7 +692,7 @@ impl Client {
                 r#"xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:isds="{ns}">"#,
                 r#"<soap:Body><isds:{op}>{inner}</isds:{op}></soap:Body></soap:Envelope>"#
             ),
-            ns = NS,
+            ns = ns,
             op = op,
             inner = inner
         );
@@ -828,7 +894,8 @@ impl Client {
             .await
     }
 
-    /// Full-text search in the public data box directory (`ISDSSearch2`).
+    /// Full-text search in the public data box directory (`ISDSSearch3`, the
+    /// same search as the ISDS portal; it knows all current box types).
     pub async fn search_boxes(
         &self,
         text: &str,
@@ -850,7 +917,7 @@ impl Client {
             scope = if authorities_only { "OVM" } else { "ALL" },
             page = page,
         );
-        let r = self.call(Service::Df, "ISDSSearch2", &inner).await?;
+        let r = self.call(Service::Df, "ISDSSearch3", &inner).await?;
         Ok(parse_search(&r.body))
     }
 
@@ -874,6 +941,43 @@ impl Client {
         r.body
             .child_text("dmID")
             .ok_or_else(|| Error::Xml("odpověď bez dmID".into()))
+    }
+
+    /// Sends one message to several recipients in one call (at most
+    /// [`MULTIPLE_MAX`]). Returns, per recipient in the given order, the new
+    /// message ID or why ISDS did not create that message. An error of the
+    /// whole call means that ISDS created no message.
+    pub async fn create_multiple_message(
+        &self,
+        m: &OutgoingMessage,
+        recipients: &[String],
+    ) -> Result<Vec<Result<String>>> {
+        if m.files.is_empty() {
+            return Err(Error::Isds {
+                code: "files".into(),
+                text: "zpráva musí mít aspoň jednu přílohu".into(),
+            });
+        }
+        if recipients.is_empty() || m.annotation.trim().is_empty() {
+            return Err(Error::Isds {
+                code: "envelope".into(),
+                text: "chybí adresát nebo věc zprávy".into(),
+            });
+        }
+        if recipients.len() > MULTIPLE_MAX {
+            return Err(Error::Isds {
+                code: "envelope".into(),
+                text: format!("najednou lze poslat nejvýš {MULTIPLE_MAX} adresátům"),
+            });
+        }
+        let r = self
+            .call(
+                Service::Dz,
+                "CreateMultipleMessage",
+                &create_multiple_body(m, recipients),
+            )
+            .await?;
+        parse_multiple(&r.body, recipients.len())
     }
 
     pub async fn mark_as_read(&self, dm_id: &str) -> Result<()> {
@@ -943,7 +1047,10 @@ fn parse_search(body: &Element) -> SearchPage {
                     name: e.child_text("dbName"),
                     address: e.child_text("dbAddress"),
                     ico: e.child_text("dbICO"),
-                    is_authority: e.child_text("dbEffectiveOVM").as_deref() == Some("true"),
+                    id_ovm: e.child_text("dbIdOVM"),
+                    // ISDSSearch3 has no dbEffectiveOVM; authorities are the OVM types.
+                    is_authority: e.child_text("dbEffectiveOVM").as_deref() == Some("true")
+                        || e.child_text("dbType").is_some_and(|t| t.trim().starts_with("OVM")),
                     send_options: e.child_text("dbSendOptions"),
                 })
                 .collect()
@@ -954,20 +1061,31 @@ fn parse_search(body: &Element) -> SearchPage {
             .child_text("totalCount")
             .and_then(|v| v.parse().ok())
             .unwrap_or(0),
-        last_page: body.child_text("lastPage").as_deref() != Some("false"),
+        // xs:boolean: ISDSSearch3 answers 0/1.
+        last_page: !matches!(body.child_text("lastPage").as_deref(), Some("false" | "0")),
         entries,
     }
 }
 
 /// ISDS reports errors in `dmStatus`/`dbStatus`; code `0000` means success.
 fn check_status(body: &Element) -> Result<()> {
-    let status = body.find("dmStatus").or_else(|| body.find("dbStatus"));
+    // The response's own status first: a multiple message also has one
+    // status per recipient deeper inside.
+    let status = body
+        .child("dmStatus")
+        .or_else(|| body.child("dbStatus"))
+        .or_else(|| body.find("dmStatus"))
+        .or_else(|| body.find("dbStatus"));
     let Some(status) = status else { return Ok(()) };
     let code = status
         .child_text("dmStatusCode")
         .or_else(|| status.child_text("dbStatusCode"))
         .unwrap_or_default();
     if code == "0000" || code.is_empty() {
+        return Ok(());
+    }
+    // "Some messages were not sent": the reasons are per recipient.
+    if code == "0004" && body.name == "CreateMultipleMessageResponse" {
         return Ok(());
     }
     Err(Error::Isds {
@@ -990,10 +1108,10 @@ mod tests {
 
     #[test]
     fn only_reads_are_sent_twice() {
-        for op in ["GetListOfReceivedMessages", "MessageDownload", "SignedMessageDownload", "SignedSentMessageDownload", "MarkMessageAsDownloaded", "GetOwnerInfoFromLogin"] {
+        for op in ["GetListOfReceivedMessages", "MessageDownload", "SignedMessageDownload", "SignedSentMessageDownload", "MarkMessageAsDownloaded", "GetOwnerInfoFromLogin", "ISDSSearch3", "CheckDataBox", "PDZSendInfo", "AuthenticateMessage", "AuthenticateBigMessage"] {
             assert!(safe_to_repeat(op), "{op}");
         }
-        for op in ["CreateMessage", "CreateMultipleMessage", "ChangeISDSPassword", "EraseMessage", "DeleteDataBoxUser2", "UpdateDataBoxUser2"] {
+        for op in ["CreateMessage", "CreateMultipleMessage", "ChangeISDSPassword", "ChangePasswordOTP", "SendSMSCode", "EraseMessage", "DeleteDataBoxUser2", "UpdateDataBoxUser2"] {
             assert!(!safe_to_repeat(op), "{op}");
         }
     }
@@ -1094,6 +1212,156 @@ mod tests {
             Some("eA==")
         );
         assert_eq!(mime_for("Smlouva.PDF"), "application/pdf");
+    }
+
+    #[test]
+    fn parses_isds_search3_results() {
+        // Sample of WS_vyhledavani_datovych_schranek, chapter 2.2 (with the
+        // mismatched dbidOVM tags of the document fixed).
+        let body = xml::parse(
+            r#"<tns:ISDSSearch3Response xmlns:tns="http://isds.czechpoint.cz/v30"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <tns:totalCount>10</tns:totalCount>
+              <tns:currentCount>2</tns:currentCount>
+              <tns:position>4</tns:position>
+              <tns:lastPage>0</tns:lastPage>
+              <tns:dbResults>
+                <tns:dbResult>
+                  <tns:dbID>d43s6xx</tns:dbID>
+                  <tns:dbType>PO</tns:dbType>
+                  <tns:dbName>Smutné s.r.o</tns:dbName>
+                  <tns:dbAddress>Hlavní nám. 2, 65432 Podešice, CZ</tns:dbAddress>
+                  <tns:dbBiDate xsi:nil="true"> </tns:dbBiDate>
+                  <tns:dbICO>87654321</tns:dbICO>
+                  <tns:dbIdOVM xsi:nil="true"></tns:dbIdOVM>
+                  <tns:dbSendOptions>ALL</tns:dbSendOptions>
+                </tns:dbResult>
+                <tns:dbResult>
+                  <tns:dbID>seymrkx</tns:dbID>
+                  <tns:dbType>OVM_PO </tns:dbType>
+                  <tns:dbName>Vysoká škola kouzel</tns:dbName>
+                  <tns:dbAddress>Hlavní 123/432, 65432 Podešice okres Strašice, CZ</tns:dbAddress>
+                  <tns:dbBiDate xsi:nil="true"> </tns:dbBiDate>
+                  <tns:dbICO>65432112</tns:dbICO>
+                  <tns:dbIdOVM>65432112</tns:dbIdOVM>
+                  <tns:dbSendOptions>NONE</tns:dbSendOptions>
+                </tns:dbResult>
+              </tns:dbResults>
+              <tns:dbStatus>
+                <tns:dbStatusCode>0000</tns:dbStatusCode>
+                <tns:dbStatusMessage>Operace proběhla úspěšně</tns:dbStatusMessage>
+              </tns:dbStatus>
+            </tns:ISDSSearch3Response>"#
+                .as_bytes(),
+        )
+        .unwrap();
+        assert!(check_status(&body).is_ok());
+        let page = parse_search(&body);
+        assert_eq!(page.total, 10);
+        assert!(!page.last_page, "lastPage 0 means more pages");
+        assert_eq!(page.entries.len(), 2);
+        let (po, ovm) = (&page.entries[0], &page.entries[1]);
+        assert_eq!(po.box_id, "d43s6xx");
+        assert!(!po.is_authority);
+        assert_eq!(po.id_ovm, None);
+        assert_eq!(po.send_options.as_deref(), Some("ALL"));
+        assert!(ovm.is_authority);
+        assert_eq!(ovm.box_type.as_deref(), Some("OVM_PO"));
+        assert_eq!(ovm.id_ovm.as_deref(), Some("65432112"));
+        let last = xml::parse(b"<r><lastPage>1</lastPage></r>").unwrap();
+        assert!(parse_search(&last).last_page);
+        assert_eq!(SearchType::IdOvm.as_str(), "IDOVM");
+    }
+
+    fn sample_message() -> OutgoingMessage {
+        OutgoingMessage {
+            annotation: "Oběžník".into(),
+            to_hands: Some("Jan Novák".into()),
+            sender_ref_number: Some("NS-2".into()),
+            allow_subst_delivery: true,
+            files: vec![OutgoingFile {
+                name: "a.pdf".into(),
+                mime_type: "application/pdf".into(),
+                content: b"x".to_vec(),
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn builds_create_multiple_message() {
+        let m = sample_message();
+        let body = create_multiple_body(&m, &["abc1234".into(), " def5678 ".into()]);
+        let doc = xml::parse(format!("<r>{}</r>", body.replace("isds:", "")).as_bytes()).unwrap();
+        let names: Vec<_> = doc.children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["dmRecipients", "dmEnvelope", "dmFiles"]);
+        let recips: Vec<_> = doc
+            .child("dmRecipients")
+            .unwrap()
+            .children_named("dmRecipient")
+            .collect();
+        assert_eq!(recips.len(), 2);
+        assert_eq!(recips[1].child_text("dbIDRecipient").as_deref(), Some("def5678"));
+        assert_eq!(recips[0].child_text("dmToHands").as_deref(), Some("Jan Novák"));
+        let env = doc.child("dmEnvelope").unwrap();
+        assert!(env.child("dbIDRecipient").is_none() && env.child("dmToHands").is_none());
+        assert_eq!(env.children[0].name, "dmAnnotation");
+        assert_eq!(env.child_text("dmSenderRefNumber").as_deref(), Some("NS-2"));
+        // Without K rukám each recipient carries a nil element, as the schema wants.
+        let mut plain = m.clone();
+        plain.to_hands = None;
+        assert!(create_multiple_body(&plain, &["abc1234".into()])
+            .contains(r#"<isds:dmToHands xsi:nil="true"/>"#));
+        // The single-recipient envelope is unchanged.
+        let mut one = m;
+        one.recipient_box_id = "abc1234".into();
+        assert!(create_message_body(&one)
+            .starts_with("<isds:dmEnvelope><isds:dbIDRecipient>abc1234</isds:dbIDRecipient><isds:dmToHands>"));
+    }
+
+    #[test]
+    fn reads_create_multiple_message_results() {
+        // Sample of WS_manipulace_s_datovymi_zpravami, chapter 2.2.
+        let body = xml::parse(
+            r#"<p:CreateMultipleMessageResponse xmlns:p="http://isds.czechpoint.cz/v20">
+               <p:dmMultipleStatus>
+                  <p:dmSingleStatus>
+                     <p:dmStatus>
+                        <p:dmStatusCode>1233</p:dmStatusCode>
+                        <p:dmStatusMessage>Odesilatel ani příjemce datové zprávy není OVM a zpráva je označena jako nekomerční.</p:dmStatusMessage>
+                     </p:dmStatus>
+                  </p:dmSingleStatus>
+                  <p:dmSingleStatus>
+                     <p:dmID>1835603</p:dmID>
+                     <p:dmStatus>
+                        <p:dmStatusCode>0000</p:dmStatusCode>
+                        <p:dmStatusMessage>Provedeno úspěšně.</p:dmStatusMessage>
+                     </p:dmStatus>
+                  </p:dmSingleStatus>
+               </p:dmMultipleStatus>
+               <p:dmStatus>
+                  <p:dmStatusCode>0004</p:dmStatusCode>
+                  <p:dmStatusMessage>Některé datové zprávy nebyly úspěšně odeslány.</p:dmStatusMessage>
+               </p:dmStatus>
+            </p:CreateMultipleMessageResponse>"#
+                .as_bytes(),
+        )
+        .unwrap();
+        // 0004 is not a failure of the call; the first recipient's error is not either.
+        assert!(check_status(&body).is_ok());
+        let list = parse_multiple(&body, 2).unwrap();
+        assert!(matches!(&list[0], Err(Error::Isds { code, .. }) if code == "1233"));
+        assert_eq!(list[1].as_ref().unwrap(), "1835603");
+        assert!(parse_multiple(&body, 3).is_err());
+        // An error before sending anything is an error of the whole call.
+        let refused = xml::parse(
+            br#"<p:CreateMultipleMessageResponse xmlns:p="http://isds.czechpoint.cz/v20">
+               <p:dmStatus><p:dmStatusCode>1252</p:dmStatusCode>
+               <p:dmStatusMessage>Nalezen virus</p:dmStatusMessage></p:dmStatus>
+            </p:CreateMultipleMessageResponse>"#,
+        )
+        .unwrap();
+        assert!(matches!(check_status(&refused), Err(Error::Isds { code, .. }) if code == "1252"));
     }
 
     #[test]

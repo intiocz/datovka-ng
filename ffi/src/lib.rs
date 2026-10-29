@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use datovka_core::isds::{Client, LoginMethod, LoginStep, MobileKeyLogin};
+use datovka_core::isds::{ops, Client, LoginMethod, LoginStep, MobileKeyLogin};
 use datovka_core::legacy::{lock, LegacyAccount, LegacyStore};
 use serde_json::{json, Value};
 
@@ -380,6 +380,7 @@ pub extern "C" fn dk_search(
             "address" => SearchType::Address,
             "ico" => SearchType::Ico,
             "box_id" => SearchType::BoxId,
+            "id_ovm" => SearchType::IdOvm,
             _ => SearchType::General,
         };
         let text = arg(text)?;
@@ -396,10 +397,62 @@ struct SendRequest {
     message: datovka_core::isds::OutgoingMessage,
     /// Paths of files to attach; the first one is the main document.
     files: Vec<String>,
+    /// Several recipients instead of `recipient_box_id`.
+    #[serde(default)]
+    recipients: Vec<String>,
+}
+
+/// Sends one message to several recipients with `CreateMultipleMessage`.
+/// Recipients that ISDS did not accept in it (e.g. those reachable only by
+/// a commercial message, which a multiple message cannot be) are sent one by
+/// one, as before. Nothing was created for them, so nothing goes twice.
+fn send_to_many(
+    acc: &LegacyAccount,
+    c: &Client,
+    msg: &datovka_core::isds::OutgoingMessage,
+    recipients: &[String],
+) -> Result<Value, String> {
+    use datovka_core::isds::MULTIPLE_MAX;
+    let mut out = Vec::new();
+    for chunk in recipients.chunks(MULTIPLE_MAX) {
+        // The new message ID per recipient, `None` to send it on its own.
+        let ids: Vec<Option<String>> = match block_on(c.create_multiple_message(msg, chunk))? {
+            Ok(list) => list.into_iter().map(Result::ok).collect(),
+            // ISDS refused the whole call before creating any message.
+            Err(datovka_core::Error::Isds { code, .. })
+                if code.bytes().all(|b| b.is_ascii_digit()) =>
+            {
+                vec![None; chunk.len()]
+            }
+            Err(err) if out.is_empty() => return Err(session_err(acc, err)),
+            Err(err) => {
+                let text = session_err(acc, err);
+                out.extend(chunk.iter().map(|r| json!({ "box_id": r, "error": text })));
+                continue;
+            }
+        };
+        for (r, id) in chunk.iter().zip(ids) {
+            let res = match id {
+                Some(id) => Ok(id),
+                None => {
+                    let mut one = msg.clone();
+                    one.recipient_box_id = r.clone();
+                    block_on(c.create_message(&one))?.map_err(|err| session_err(acc, err))
+                }
+            };
+            out.push(match res {
+                Ok(id) => json!({ "box_id": r, "dm_id": id }),
+                Err(text) => json!({ "box_id": r, "error": text }),
+            });
+        }
+    }
+    Ok(json!(out))
 }
 
 /// Sends a message from `username`. `request` is JSON: envelope fields of
-/// `OutgoingMessage` plus `files` (paths). Returns the new message ID.
+/// `OutgoingMessage` plus `files` (paths). Returns the new message ID; with
+/// `recipients` (more than one) a list of `{box_id, dm_id}` or
+/// `{box_id, error}` instead.
 #[no_mangle]
 pub extern "C" fn dk_send(
     dir: *const c_char,
@@ -425,9 +478,28 @@ pub extern "C" fn dk_send(
             });
         }
         let c = client(&acc)?;
-        // Over 20 MB a message must go as a high-volume message (VoDZ).
+        // Over 20 MB a message must go as a high-volume message (VoDZ),
+        // which ISDS cannot send to several recipients at once.
         let total: usize = msg.files.iter().map(|f| f.content.len()).sum();
-        let dm_id = if total > 20 * 1024 * 1024 {
+        let big = total > 20 * 1024 * 1024;
+        if req.recipients.len() > 1 && !big {
+            return send_to_many(&acc, &c, &msg, &req.recipients);
+        }
+        if req.recipients.len() > 1 {
+            let mut out = Vec::new();
+            for r in &req.recipients {
+                msg.recipient_box_id = r.clone();
+                out.push(match block_on(c.send_big(&msg))? {
+                    Ok(id) => json!({ "box_id": r, "dm_id": id }),
+                    Err(err) => json!({ "box_id": r, "error": session_err(&acc, err) }),
+                });
+            }
+            return Ok(json!(out));
+        }
+        if let [one] = req.recipients.as_slice() {
+            msg.recipient_box_id = one.clone();
+        }
+        let dm_id = if big {
             block_on(c.send_big(&msg))?
         } else {
             block_on(c.create_message(&msg))?
@@ -744,6 +816,45 @@ pub extern "C" fn dk_op(
                 .map(|(t, d)| json!({ "time": t, "description": d }))
                 .collect::<Vec<_>>()));
         }
+        // Boxes logging in with password and code change the password at a
+        // service of its own, authenticated by the old password and a code
+        // (not by the session, so its errors never end the session).
+        let otp = match acc.login {
+            LoginMethod::PasswordTotp => Some(ops::Otp::Sms),
+            LoginMethod::PasswordHotp => Some(ops::Otp::App),
+            _ => None,
+        };
+        match (op.as_str(), otp) {
+            ("send_sms_code", Some(ops::Otp::Sms)) => {
+                block_on(ops::send_sms_code(&acc.username, &str_arg("old")?, acc.test_env))?
+                    .map_err(e)?;
+                return Ok(json!(true));
+            }
+            ("send_sms_code", _) => return Err("schránka se nepřihlašuje SMS kódem".into()),
+            ("change_password", Some(otp)) => {
+                let new = str_arg("new")?;
+                let code = str_arg("code").unwrap_or_default();
+                if code.trim().is_empty() {
+                    return Err(if otp == ops::Otp::Sms {
+                        "zadejte kód z SMS".into()
+                    } else {
+                        "zadejte bezpečnostní kód".into()
+                    });
+                }
+                block_on(ops::change_password_otp(
+                    &acc.username,
+                    &str_arg("old")?,
+                    &new,
+                    &code,
+                    otp,
+                    acc.test_env,
+                ))?
+                .map_err(e)?;
+                store_new_password(&s, &acc, &new)?;
+                return Ok(json!(true));
+            }
+            _ => {}
+        }
         let c = client(&acc)?;
         let fail = |err| session_err(&acc, err);
         let zfo = |id: i64| -> Result<Vec<u8>, String> {
@@ -753,16 +864,40 @@ pub extern "C" fn dk_op(
         };
         let v = match op.as_str() {
             "verify" => {
-                let id = dm()?;
-                block_on(c.verify_message(&id.to_string(), &zfo(id)?))?.map_err(fail)?
+                // ISDS checks the whole stored ZFO (AuthenticateMessage); the
+                // deprecated VerifyMessage compared only the hash.
+                let data = zfo(dm()?)?;
+                let (ok, method) = block_on(c.authenticate_any(&data))?.map_err(fail)?;
+                let (local, algorithm) = match ops::zfo_hash(&data) {
+                    Ok((h, a)) => (Some(h), a),
+                    Err(_) => (None, None),
+                };
+                json!({
+                    "match": ok,
+                    "method": method,
+                    "algorithm": algorithm,
+                    "local_hash": local,
+                })
             }
             "authenticate" => {
                 let id = dm()?;
-                json!(block_on(c.authenticate_message(&zfo(id)?))?.map_err(fail)?)
+                json!(block_on(c.authenticate_any(&zfo(id)?))?.map_err(fail)?.0)
             }
             "authenticate_file" => {
                 let data = std::fs::read(str_arg("path")?).map_err(e)?;
-                json!(block_on(c.authenticate_message(&data))?.map_err(fail)?)
+                json!(block_on(c.authenticate_any(&data))?.map_err(fail)?.0)
+            }
+            "check_box" => {
+                let state = block_on(c.check_box(&str_arg("recipient")?))?.map_err(fail)?;
+                json!({
+                    "state": state,
+                    "active": state == 1,
+                    "text": ops::box_state_text(state),
+                })
+            }
+            "pdz_send_info" => {
+                let kind = str_arg("type").unwrap_or_else(|_| "Normal".into());
+                json!(block_on(c.pdz_send_info(&str_arg("recipient")?, &kind))?.map_err(fail)?)
             }
             "author" => block_on(c.message_author(&dm()?.to_string()))?.map_err(fail)?,
             "resign" => {
@@ -832,25 +967,7 @@ pub extern "C" fn dk_op(
             "change_password" => {
                 let new = str_arg("new")?;
                 block_on(c.change_password(&str_arg("old")?, &new))?.map_err(fail)?;
-                // Keep the stored password in sync so downloading keeps working,
-                // where it is: dsgui.conf of the original app, or the system store.
-                if acc.password.is_some() {
-                    let in_conf = datovka_core::legacy::conf::load(s.dir())
-                        .map_err(e)?
-                        .iter()
-                        .any(|a| a.username == acc.username && a.password.is_some());
-                    if in_conf {
-                        datovka_core::legacy::conf::set_password(s.dir(), &acc.username, &new)
-                            .map_err(e)?;
-                    } else {
-                        datovka_core::legacy::secrets::set_password(
-                            &acc.username,
-                            acc.test_env,
-                            &new,
-                        )
-                        .map_err(e)?;
-                    }
-                }
+                store_new_password(&s, &acc, &new)?;
                 json!(true)
             }
             "credit" => block_on(c.credit_info(&box_id()?))?.map_err(fail)?,
@@ -887,6 +1004,23 @@ pub extern "C" fn dk_op(
         };
         Ok(v)
     })())
+}
+
+/// Keeps the stored password in sync after a change so downloading keeps
+/// working, where it is: dsgui.conf of the original app, or the system store.
+fn store_new_password(s: &LegacyStore, acc: &LegacyAccount, new: &str) -> Result<(), String> {
+    if acc.password.is_none() {
+        return Ok(());
+    }
+    let in_conf = datovka_core::legacy::conf::load(s.dir())
+        .map_err(e)?
+        .iter()
+        .any(|a| a.username == acc.username && a.password.is_some());
+    if in_conf {
+        datovka_core::legacy::conf::set_password(s.dir(), &acc.username, new).map_err(e)
+    } else {
+        datovka_core::legacy::secrets::set_password(&acc.username, acc.test_env, new).map_err(e)
+    }
 }
 
 /// Imports a ZFO file into the box it belongs to (recipient: received,
