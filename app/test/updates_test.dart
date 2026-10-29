@@ -27,4 +27,27 @@ void main() {
     expect(isNewerVersion('v1.0.0', '1.0.1'), isFalse);
     expect(isNewerVersion('v2', '1.9.9'), isTrue);
   });
+
+  test('the app shows only what is new, not the install table', () {
+    const notes = '''## Co je nového
+
+- **Telefon**: schránky jsou podle abecedy
+  a nedají se přetahovat.
+- **Verze ve stavovém řádku** dole.
+
+## Instalace
+
+Ručně ji stáhnete z tabulky níže.
+
+| Systém | Soubor |
+|---|---|
+| macOS | `DatovkaNG-macos.zip` |
+''';
+    expect(releaseNews(notes), [
+      '**Telefon**: schránky jsou podle abecedy a nedají se přetahovat.',
+      '**Verze ve stavovém řádku** dole.',
+    ]);
+    expect(releaseNews('Opravy chyb.'), ['Opravy chyb.']);
+    expect(releaseNews(''), isEmpty);
+  });
 }

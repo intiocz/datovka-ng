@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../ui/release_notes.dart';
 import 'user_error.dart';
 
 /// Version shown to people and compared with GitHub releases.
@@ -54,6 +55,41 @@ class ReleaseInfo {
     this.assetUrl,
     this.assetName,
   });
+}
+
+/// The "what's new" part of release notes as separate points: the text up
+/// to the second heading (the install table is for the web page), each
+/// bullet or paragraph joined into one line. `**bold**` stays for the view.
+List<String> releaseNews(String notes) {
+  final points = <String>[];
+  var headings = 0;
+  String? current;
+  void flush() {
+    if (current != null && current!.trim().isNotEmpty) points.add(current!.trim());
+    current = null;
+  }
+
+  for (final raw in notes.split(RegExp(r'\r?\n'))) {
+    final line = raw.trim();
+    if (line.startsWith('#')) {
+      flush();
+      if (++headings > 1 && points.isNotEmpty) break;
+      continue;
+    }
+    if (line.isEmpty || line.startsWith('|')) {
+      flush();
+      continue;
+    }
+    final bullet = RegExp(r'^[-*] +').firstMatch(line);
+    if (bullet != null) {
+      flush();
+      current = line.substring(bullet.end);
+    } else {
+      current = current == null ? line : '$current $line';
+    }
+  }
+  flush();
+  return points;
 }
 
 /// `true` when [latest] (a tag like `v1.2.0`) is newer than [current].
@@ -233,11 +269,9 @@ Future<void> offerUpdate(BuildContext context) async {
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
-          child: Text(
-            info.notes.isEmpty
-                ? 'Na GitHubu je novější balíček Datovky NG.'
-                : info.notes,
-          ),
+          child: releaseNews(info.notes).isEmpty
+              ? const Text('Na GitHubu je novější balíček Datovky NG.')
+              : ReleaseNotes(info.notes),
         ),
       ),
       actions: [

@@ -12,6 +12,7 @@ import '../theme.dart';
 import 'app_scope.dart';
 import 'app_lock.dart';
 import 'connect_assistant.dart';
+import 'release_notes.dart';
 
 /// Preferences of this device (⌘, on macOS).
 /// [page] opens a section right away, e.g. `updates`.
@@ -735,12 +736,7 @@ class _UpdateStatus extends StatelessWidget {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.only(left: 30),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 160),
-                child: SingleChildScrollView(
-                  child: Text(info.notes, style: text.bodySmall),
-                ),
-              ),
+              child: ReleaseNotes(info.notes, style: text.bodySmall),
             ),
           ],
           const SizedBox(height: 10),
