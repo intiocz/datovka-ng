@@ -291,8 +291,7 @@ fn envelope_element(m: &OutgoingMessage) -> String {
     envelope_xml(m, true)
 }
 
-/// `<isds:name>v</isds:name>`, or `xsi:nil` when there is no value: the
-/// schema requires every element of the envelope, empty ones as nil.
+/// `<isds:name>v</isds:name>`, or `xsi:nil` when there is no value.
 fn el_or_nil(name: &str, v: &Option<String>) -> String {
     match opt_el(name, v) {
         e if e.is_empty() => format!(r#"<isds:{name} xsi:nil="true"/>"#),
@@ -301,33 +300,29 @@ fn el_or_nil(name: &str, v: &Option<String>) -> String {
 }
 
 /// `dmEnvelope`; without the recipient for `CreateMultipleMessage`, whose
-/// recipients (and their `K rukám`) are listed in `dmRecipients`. Elements
-/// follow `gMessageEnvelopeSub` (or `gMultipleMessageEnvelopeSub`).
+/// recipients (and their `K rukám`) are listed in `dmRecipients`.
 fn envelope_xml(m: &OutgoingMessage, with_recipient: bool) -> String {
-    let nil = |name: &str| format!(r#"<isds:{name} xsi:nil="true"/>"#);
-    let mut env = nil("dmSenderOrgUnit") + &nil("dmSenderOrgUnitNum");
+    let mut env = String::new();
     if with_recipient {
         env += &format!(
             "<isds:dbIDRecipient>{}</isds:dbIDRecipient>",
             escape(m.recipient_box_id.trim())
         );
-        env += &nil("dmRecipientOrgUnit");
-        env += &nil("dmRecipientOrgUnitNum");
-        env += &el_or_nil("dmToHands", &m.to_hands);
+        env += &opt_el("dmToHands", &m.to_hands);
     }
     env += &format!(
         "<isds:dmAnnotation>{}</isds:dmAnnotation>",
         escape(m.annotation.trim())
     );
-    env += &el_or_nil("dmRecipientRefNumber", &m.recipient_ref_number);
-    env += &el_or_nil("dmSenderRefNumber", &m.sender_ref_number);
-    env += &el_or_nil("dmRecipientIdent", &m.recipient_ident);
-    env += &el_or_nil("dmSenderIdent", &m.sender_ident);
-    env += &el_or_nil("dmLegalTitleLaw", &m.legal_title_law);
-    env += &el_or_nil("dmLegalTitleYear", &m.legal_title_year);
-    env += &el_or_nil("dmLegalTitleSect", &m.legal_title_sect);
-    env += &el_or_nil("dmLegalTitlePar", &m.legal_title_par);
-    env += &el_or_nil("dmLegalTitlePoint", &m.legal_title_point);
+    env += &opt_el("dmRecipientRefNumber", &m.recipient_ref_number);
+    env += &opt_el("dmSenderRefNumber", &m.sender_ref_number);
+    env += &opt_el("dmRecipientIdent", &m.recipient_ident);
+    env += &opt_el("dmSenderIdent", &m.sender_ident);
+    env += &opt_el("dmLegalTitleLaw", &m.legal_title_law);
+    env += &opt_el("dmLegalTitleYear", &m.legal_title_year);
+    env += &opt_el("dmLegalTitleSect", &m.legal_title_sect);
+    env += &opt_el("dmLegalTitlePar", &m.legal_title_par);
+    env += &opt_el("dmLegalTitlePoint", &m.legal_title_point);
     env += &format!(
         "<isds:dmPersonalDelivery>{}</isds:dmPersonalDelivery>",
         m.personal_delivery
@@ -1197,32 +1192,17 @@ mod tests {
         let body = create_message_body(&m);
         let doc = xml::parse(format!("<r xmlns:isds=\"x\">{body}</r>").as_bytes()).unwrap();
         let env = doc.find("dmEnvelope").unwrap();
-        // Every element of gMessageEnvelopeSub, in its order; empty ones nil.
         let names: Vec<_> = env.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(
             names,
             [
-                "dmSenderOrgUnit",
-                "dmSenderOrgUnitNum",
                 "dbIDRecipient",
-                "dmRecipientOrgUnit",
-                "dmRecipientOrgUnitNum",
-                "dmToHands",
                 "dmAnnotation",
-                "dmRecipientRefNumber",
                 "dmSenderRefNumber",
-                "dmRecipientIdent",
-                "dmSenderIdent",
-                "dmLegalTitleLaw",
-                "dmLegalTitleYear",
-                "dmLegalTitleSect",
-                "dmLegalTitlePar",
-                "dmLegalTitlePoint",
                 "dmPersonalDelivery",
                 "dmAllowSubstDelivery"
             ]
         );
-        assert_eq!(env.child("dmRecipientIdent").unwrap().attr("nil"), Some("true"));
         assert_eq!(
             env.child_text("dmAnnotation").as_deref(),
             Some("Odpověď <test>")
@@ -1332,7 +1312,7 @@ mod tests {
         assert_eq!(recips[0].child_text("dmToHands").as_deref(), Some("Jan Novák"));
         let env = doc.child("dmEnvelope").unwrap();
         assert!(env.child("dbIDRecipient").is_none() && env.child("dmToHands").is_none());
-        assert_eq!(env.children[2].name, "dmAnnotation");
+        assert_eq!(env.children[0].name, "dmAnnotation");
         assert_eq!(env.child_text("dmSenderRefNumber").as_deref(), Some("NS-2"));
         // Without K rukám each recipient carries a nil element, as the schema wants.
         let mut plain = m.clone();
@@ -1342,9 +1322,8 @@ mod tests {
         // The single-recipient envelope is unchanged.
         let mut one = m;
         one.recipient_box_id = "abc1234".into();
-        assert!(create_message_body(&one).contains(
-            r#"<isds:dbIDRecipient>abc1234</isds:dbIDRecipient><isds:dmRecipientOrgUnit xsi:nil="true"/><isds:dmRecipientOrgUnitNum xsi:nil="true"/><isds:dmToHands>"#
-        ));
+        assert!(create_message_body(&one)
+            .starts_with("<isds:dmEnvelope><isds:dbIDRecipient>abc1234</isds:dbIDRecipient><isds:dmToHands>"));
     }
 
     #[test]

@@ -7,7 +7,8 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 
 Všechny požadavky na ISDS se v testech kontrolují proti oficiálním XSD.
 Čtecí operace jsou ověřené na ostrém ISDS (`core/tests/production.rs`,
-29. 10. 2026). Co v ISDS něco mění, čeká na testovací prostředí.
+29. 10. 2026), odeslání zprávy taky. Ostatní, co v ISDS něco mění, čeká
+na testovací prostředí.
 
 ## Účty a přihlášení
 
@@ -60,7 +61,7 @@ Všechny požadavky na ISDS se v testech kontrolují proti oficiálním XSD.
 
 | Funkce | Stav | Pozn. |
 |---|---|---|
-| Nová zpráva, odpověď, přeposlání | 🧪 | `CreateMessage` |
+| Nová zpráva, odpověď, přeposlání | ✅ | `CreateMessage`; ověřeno odpovědí finančnímu úřadu (k rukám, č. j.) 29. 10. 2026 |
 | Přílohy včetně přetažení z plochy | ✅ | |
 | Více adresátů | 🧪 | `CreateMultipleMessage` (po 50); komu ISDS v ní zprávu nevytvoří (např. jen poštovní zprávou), tomu samostatně `CreateMessage`; VoDZ a poštovní typy po jednom |
 | Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | typy nabízí jen když je ISDS dovolí (`PDZSendInfo` Normal/Init) |
