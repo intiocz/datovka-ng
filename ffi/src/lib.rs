@@ -673,6 +673,17 @@ pub extern "C" fn dk_op(
                 with_lock(&|l| s.set_deadline(l, &acc.username, id, d.as_deref()))?;
                 return Ok(json!(true));
             }
+            "process_state" => {
+                let state = args.get("state").and_then(Value::as_i64).ok_or("chybí stav")?;
+                let id = dm()?;
+                with_lock(&|l| s.set_process_state(l, &acc, id, state))?;
+                return Ok(json!(true));
+            }
+            "delete_local" => {
+                let id = dm()?;
+                with_lock(&|l| s.delete_message(l, &acc, id))?;
+                return Ok(json!(true));
+            }
             "drafts" => return Ok(serde_json::to_value(s.drafts().map_err(e)?).map_err(e)?),
             "save_draft" => {
                 let id = args.get("id").and_then(Value::as_i64);
@@ -785,6 +796,31 @@ pub extern "C" fn dk_op(
                     .unwrap_or(true);
                 block_on(c.erase_message(&dm()?.to_string(), incoming))?.map_err(fail)?;
                 json!(true)
+            }
+            "redownload" => {
+                let incoming = args
+                    .get("incoming")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true);
+                let direction = if incoming {
+                    datovka_core::model::Direction::Received
+                } else {
+                    datovka_core::model::Direction::Sent
+                };
+                let id = dm()?;
+                let done = std::cell::RefCell::new(None);
+                with_lock(&|l| {
+                    *done.borrow_mut() = Some(block_on(datovka_core::legacy::sync::redownload(
+                        &c, &s, l, &acc, id, direction,
+                    )));
+                    Ok(())
+                })?;
+                match done.into_inner() {
+                    Some(Ok(Ok(()))) => json!(true),
+                    Some(Ok(Err(err))) => return Err(fail(err)),
+                    Some(Err(err)) => return Err(err),
+                    None => return Err("zpráva se nestáhla".into()),
+                }
             }
             "owner_info" => block_on(c.owner_info2())?.map_err(fail)?,
             "user_info" => block_on(c.user_info2())?.map_err(fail)?,

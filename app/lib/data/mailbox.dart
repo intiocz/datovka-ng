@@ -46,6 +46,11 @@ Message messageFromRow(Map<String, dynamic> r) {
     note: (r['note'] as String?)?.trim().isEmpty ?? true
         ? null
         : r['note'] as String,
+    processState:
+        ProcessState.values.elementAtOrNull(
+          (r['process_state'] as num?)?.toInt() ?? 0,
+        ) ??
+        ProcessState.unsettled,
   );
 }
 

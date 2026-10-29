@@ -56,6 +56,8 @@ pub struct MessageSummary {
     pub attachments: Option<i64>,
     pub read_locally: bool,
     pub has_zfo: bool,
+    /// 0 unsettled, 1 in progress, 2 settled (`process_state` of the original).
+    pub process_state: i64,
     /// Database file the message lives in (file name only).
     pub db_file: String,
 }
@@ -214,8 +216,14 @@ impl LegacyStore {
         for db in self.message_dbs(account)? {
             let c = Self::open_ro(&db)?;
             let file = db.file_name().unwrap().to_string_lossy().into_owned();
+            // Databases of old or mobile versions may lack process_state.
+            let state = if table_exists(&c, "process_state") {
+                "(SELECT state FROM process_state p WHERE p.message_id = m.dmID)"
+            } else {
+                "0"
+            };
             let mut stmt = c.prepare(&format!(
-                "SELECT {COLUMNS} FROM messages m
+                "SELECT {COLUMNS}, {state} FROM messages m
                  LEFT JOIN supplementary_message_data s ON s.message_id = m.dmID"
             ))?;
             let rows = stmt.query_map([], |r| {
@@ -246,6 +254,7 @@ impl LegacyStore {
                     attachments: r.get(14)?,
                     read_locally: r.get::<_, Option<bool>>(15)?.unwrap_or(false),
                     has_zfo: r.get::<_, i64>(16)? > 0,
+                    process_state: r.get::<_, Option<i64>>(17)?.unwrap_or(0),
                     db_file: file.clone(),
                 })
             })?;
@@ -357,6 +366,15 @@ impl LegacyStore {
         )?;
         Ok(())
     }
+}
+
+fn table_exists(c: &Connection, name: &str) -> bool {
+    c.query_row(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        [name],
+        |_| Ok(()),
+    )
+    .is_ok()
 }
 
 /// Reads a column stored either as TEXT or BLOB (the original app uses both).

@@ -311,6 +311,21 @@ class _Row extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
+                        if (m.processState != ProcessState.unsettled) ...[
+                          Tooltip(
+                            message: m.processState.label,
+                            child: Icon(
+                              m.processState == ProcessState.settled
+                                  ? Icons.task_alt
+                                  : Icons.pending_outlined,
+                              size: 14,
+                              color: m.processState == ProcessState.settled
+                                  ? t.ok
+                                  : t.warn,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         if (m.attachments.isNotEmpty) ...[
                           Icon(Icons.attach_file, size: 14, color: t.inkMuted),
                           Text(

@@ -57,6 +57,38 @@ pub async fn sync_account(
     sync_with(&client_for(account)?, store, lock, account).await
 }
 
+/// Downloads one message from ISDS again, with its delivery info, and
+/// replaces the stored copy. The old copy is kept when the download fails,
+/// e.g. because ISDS has already deleted the message.
+pub async fn redownload(
+    client: &Client,
+    store: &LegacyStore,
+    lock: &WriteLock,
+    account: &LegacyAccount,
+    dm_id: i64,
+    direction: Direction,
+) -> Result<()> {
+    let id = dm_id.to_string();
+    let zfo = match direction {
+        Direction::Received => client.download_received(&id).await,
+        Direction::Sent => client.download_sent(&id).await,
+    };
+    let zfo = match zfo {
+        Ok(z) => z,
+        Err(first) => match direction {
+            Direction::Received => client.download_big_received(&id).await,
+            Direction::Sent => client.download_big_sent(&id).await,
+        }
+        .map_err(|_| first)?,
+    };
+    let di = client.download_delivery_info(&id).await.ok();
+    if store.contains(account, dm_id)? {
+        store.delete_message(lock, account, dm_id)?;
+    }
+    store.insert_message(lock, account, direction, &zfo, di.as_deref())?;
+    Ok(())
+}
+
 /// Like [`sync_account`] with an already logged-in client (e.g. a mobile key session).
 pub async fn sync_with(
     client: &Client,

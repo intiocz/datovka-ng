@@ -183,6 +183,73 @@ impl LegacyStore {
 }
 
 impl LegacyStore {
+    /// Removes a message and everything stored with it from this computer,
+    /// like the original app: certificates only when no other message uses
+    /// them. Tags, notes and deadlines stay, so a message downloaded again
+    /// gets them back.
+    pub fn delete_message(&self, _lock: &WriteLock, account: &LegacyAccount, dm_id: i64) -> Result<()> {
+        let mut c = Self::open_rw(&self.find_db(account, dm_id)?)?;
+        let tx = c.transaction()?;
+        let certs: Vec<i64> = {
+            let mut st =
+                tx.prepare("SELECT certificate_id FROM message_certificate_data WHERE message_id = ?1")?;
+            let rows = st.query_map([dm_id], |r| r.get(0))?;
+            rows.collect::<std::result::Result<_, _>>()?
+        };
+        for table in [
+            "hashes",
+            "files",
+            "events",
+            "raw_message_data",
+            "raw_delivery_info_data",
+            "supplementary_message_data",
+            "message_certificate_data",
+            "process_state",
+        ] {
+            // Older databases may lack a table.
+            let _ = tx.execute(&format!("DELETE FROM {table} WHERE message_id = ?1"), [dm_id]);
+        }
+        for id in certs {
+            tx.execute(
+                "DELETE FROM certificate_data WHERE id = ?1
+                 AND NOT EXISTS (SELECT 1 FROM message_certificate_data WHERE certificate_id = ?1)",
+                [id],
+            )?;
+        }
+        tx.execute("DELETE FROM messages WHERE dmID = ?1", [dm_id])?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Processing state of a message as the original app keeps it:
+    /// 0 unsettled, 1 in progress, 2 settled.
+    pub fn set_process_state(
+        &self,
+        _lock: &WriteLock,
+        account: &LegacyAccount,
+        dm_id: i64,
+        state: i64,
+    ) -> Result<()> {
+        if !(0..=2).contains(&state) {
+            return Err(Error::Zfo(format!("neznámý stav vyřízení {state}")));
+        }
+        let c = Self::open_rw(&self.find_db(account, dm_id)?)?;
+        // Databases of old or mobile versions may lack the table.
+        c.execute_batch(
+            "CREATE TABLE IF NOT EXISTS process_state (
+                message_id INTEGER NOT NULL,
+                state INTEGER,
+                PRIMARY KEY (message_id),
+                FOREIGN KEY(message_id) REFERENCES messages (dmID)
+            );",
+        )?;
+        c.execute(
+            "INSERT OR REPLACE INTO process_state (message_id, state) VALUES (?1, ?2)",
+            params![dm_id, state],
+        )?;
+        Ok(())
+    }
+
     /// Replaces the stored signed message, e.g. after time stamp renewal.
     pub fn replace_zfo(
         &self,
@@ -261,6 +328,26 @@ mod tests {
             8
         );
         assert!(dir.join("abc_2018___0.db").exists());
+
+        assert_eq!(msgs[0].process_state, 0, "a new message is unsettled");
+        store.set_process_state(&l, &acc, 6452235, 2).unwrap();
+        assert_eq!(store.messages(&acc).unwrap()[0].process_state, 2);
+        assert!(store.set_process_state(&l, &acc, 6452235, 7).is_err());
+
+        store.delete_message(&l, &acc, 6452235).unwrap();
+        assert!(store.messages(&acc).unwrap().is_empty());
+        assert!(!store.contains(&acc, 6452235).unwrap());
+        let c = Connection::open(dir.join("abc_2018___0.db")).unwrap();
+        for table in ["files", "events", "raw_message_data", "raw_delivery_info_data", "process_state"] {
+            let n: i64 = c
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table} is empty after deleting");
+        }
+        // Stored again, as after downloading it once more.
+        assert!(store
+            .insert_message(&l, &acc, Direction::Received, &zfo, di.as_deref())
+            .unwrap());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

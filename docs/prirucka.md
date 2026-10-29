@@ -104,8 +104,14 @@ případně první schránkou s uloženým heslem.
 
 ## Další funkce
 
-- **Akce u zprávy** (ikona ⋯ v liště): ověřit zprávu v ISDS, kdo zprávu odeslal,
-  doručenka a události, uložit doručenku, přeposlat, poslat e-mailem, smazat v ISDS.
+- **Akce u zprávy** (pravé tlačítko na zprávě v seznamu nebo ikona ⋯ v liště):
+  odpovědět, přeposlat, použít jako šablonu; Označit (přečtené, nevyřízeno,
+  vyřizuje se, vyřízeno); lhůta, štítek, poznámka; Uložit (ZFO zprávy
+  i doručenky, obálka a doručenka do PDF, všechny přílohy); otevřít ZFO
+  v jiné aplikaci; poslat e-mailem; ISDS (ověřit, kdo odeslal, doručenka
+  a události, obnovit razítko, stáhnout znovu); smazat jen v počítači nebo
+  v ISDS. Smazání v ISDS nechá podepsaný originál v archivu, smazání
+  v počítači ho odstraní, ale do vymazání v ISDS jde zprávu stáhnout znovu.
 - **Obálka do PDF / tisk**: ikona tiskárny v liště zprávy.
 - **Štítky**: v detailu zprávy, sdílené s původní Datovkou (`tag.db`).
 - **Roky a měsíce**: šipka před složkou Přijaté, Odeslané nebo Všechny zprávy

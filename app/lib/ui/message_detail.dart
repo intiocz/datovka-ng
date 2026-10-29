@@ -173,15 +173,7 @@ class _Toolbar extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'Uložit podepsanou zprávu (ZFO)',
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final path = await s.saveZfo(m);
-              if (path != null) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Uloženo: $path')),
-                );
-              }
-            },
+            onPressed: () => saveSignedFile(context, m),
             icon: Icon(Icons.file_download_outlined, color: t.inkMuted),
           ),
           IconButton(

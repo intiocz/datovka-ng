@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../data/app_state.dart';
 import '../data/models.dart';
+import '../data/user_error.dart';
 import '../theme.dart';
 import 'app_scope.dart';
 import 'ai_dialog.dart';
@@ -18,13 +22,25 @@ enum _Action {
   delivery,
   saveDelivery,
   forward,
+  template,
   email,
+  emailZfo,
+  emailAttachments,
   records,
   resign,
+  redownload,
   erase,
+  deleteLocal,
+  saveZfo,
+  saveAttachments,
+  openZfo,
+  openDelivery,
+  deadline,
+  tag,
 }
 
-/// "More" menu of a message: ISDS checks, delivery info, forwarding, erasing.
+/// "More" menu of a message in its detail: the same actions as the right
+/// click in the list, except opening it.
 class MessageActions extends StatelessWidget {
   final Message m;
 
@@ -33,39 +49,145 @@ class MessageActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Tokens.of(context);
-    return PopupMenuButton<_Action>(
-      tooltip: 'Další akce',
-      icon: Icon(Icons.more_horiz, color: t.inkMuted),
-      onSelected: (a) => _run(context, a),
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: _Action.verify,
-          child: Text('Ověřit zprávu v ISDS'),
-        ),
-        PopupMenuItem(value: _Action.author, child: Text('Kdo zprávu odeslal')),
-        PopupMenuItem(
-          value: _Action.delivery,
-          child: Text('Doručenka a události'),
-        ),
-        PopupMenuItem(
-          value: _Action.saveDelivery,
-          child: Text('Uložit doručenku (ZFO)'),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(value: _Action.forward, child: Text('Přeposlat')),
-        PopupMenuItem(value: _Action.email, child: Text('Poslat e-mailem')),
-        PopupMenuItem(
-          value: _Action.records,
-          child: Text('Uložit do spisové služby…'),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(value: _Action.erase, child: Text('Smazat v ISDS…')),
-      ],
+    return MenuAnchor(
+      menuChildren: _menu(context, m),
+      builder: (context, menu, _) => IconButton(
+        tooltip: 'Další akce',
+        icon: Icon(Icons.more_horiz, color: t.inkMuted),
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+      ),
     );
   }
+}
 
-  Future<void> _run(BuildContext context, _Action a) =>
-      _runAction(context, m, a);
+/// Everything that can be done with one message, grouped like the menu of
+/// the original Datovka.
+List<Widget> _menu(BuildContext context, Message m, {bool inList = false}) {
+  final s = AppScope.of(context);
+  final received = m.direction == Direction.received;
+  final phone = Platform.isIOS || Platform.isAndroid;
+  void run(_Action a) => _runAction(context, m, a);
+  Widget item(String label, VoidCallback onPressed, {Widget? trailing}) =>
+      MenuItemButton(
+        onPressed: onPressed,
+        trailingIcon: trailing,
+        child: Text(label),
+      );
+  Widget sub(String label, List<Widget> children) =>
+      SubmenuButton(menuChildren: children, child: Text(label));
+  const line = Divider(height: 1);
+
+  return [
+    if (inList) item('Otevřít', () => s.open(m.dmId)),
+    if (received)
+      item('Odpovědět', () => showCompose(context, Draft.reply(m))),
+    item('Přeposlat', () => run(_Action.forward)),
+    item('Použít jako šablonu', () => run(_Action.template)),
+    line,
+    sub('Označit', [
+      if (received)
+        item(
+          m.isRead ? 'Jako nepřečtené' : 'Jako přečtené',
+          () => s.toggleRead(m.dmId),
+        ),
+      if (received) line,
+      for (final st in ProcessState.values)
+        item(
+          st.label,
+          () => s.setProcessState(m, st),
+          trailing: m.processState == st
+              ? const Icon(Icons.check, size: 16)
+              : null,
+        ),
+    ]),
+    item('Lhůta…', () => run(_Action.deadline)),
+    item('Štítek…', () => run(_Action.tag)),
+    item(
+      m.note == null ? 'Poznámka…' : 'Upravit poznámku…',
+      () => editNote(context, m),
+    ),
+    item('Najít termíny (AI)', () => showAiAnalysis(context, m)),
+    line,
+    sub('Uložit', [
+      item('Podepsanou zprávu (ZFO)…', () => run(_Action.saveZfo)),
+      item('Doručenku (ZFO)…', () => run(_Action.saveDelivery)),
+      item(
+        'Obálku do PDF…',
+        () => saveMessagePdf(context, m, MessagePdf.envelope),
+      ),
+      item(
+        'Doručenku do PDF…',
+        () => saveMessagePdf(context, m, MessagePdf.delivery),
+      ),
+      if (!phone)
+        item('Všechny přílohy…', () => run(_Action.saveAttachments)),
+    ]),
+    if (!phone) item('Tisk obálky…', () => printEnvelope(context, m)),
+    sub('Otevřít v jiné aplikaci', [
+      item('Zprávu (ZFO)', () => run(_Action.openZfo)),
+      item('Doručenku (ZFO)', () => run(_Action.openDelivery)),
+    ]),
+    if (!phone)
+      sub('Poslat e-mailem', [
+        item('Podepsanou zprávu (ZFO)', () => run(_Action.emailZfo)),
+        item('Přílohy', () => run(_Action.emailAttachments)),
+        item('Zprávu i přílohy', () => run(_Action.email)),
+      ]),
+    item('Uložit do spisové služby…', () => run(_Action.records)),
+    line,
+    sub('ISDS', [
+      item('Ověřit zprávu v ISDS', () => run(_Action.verify)),
+      item('Kdo zprávu odeslal', () => run(_Action.author)),
+      item('Doručenka a události', () => run(_Action.delivery)),
+      item('Obnovit časové razítko', () => run(_Action.resign)),
+      item('Stáhnout znovu z ISDS', () => run(_Action.redownload)),
+    ]),
+    line,
+    item('Smazat jen v počítači…', () => run(_Action.deleteLocal)),
+    item('Smazat v ISDS…', () => run(_Action.erase)),
+  ];
+}
+
+/// Saves a signed file of the message where the user picks; on a phone it
+/// opens in the preview, where it can be shared or saved.
+Future<void> saveSignedFile(
+  BuildContext context,
+  Message m, {
+  bool delivery = false,
+}) async {
+  final s = AppScope.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final name = '${delivery ? 'DD' : 'DZ'}_${m.dmId}.zfo';
+  final temp = s.tempPath(name);
+  if (temp == null) return;
+  try {
+    _writeSigned(s, m, temp, delivery: delivery);
+    if (Platform.isIOS || Platform.isAndroid) {
+      await s.core?.openFile(temp);
+      return;
+    }
+    final loc = await getSaveLocation(suggestedName: name);
+    if (loc == null) return;
+    await File(temp).copy(loc.path);
+    messenger.showSnackBar(SnackBar(content: Text('Uloženo: ${loc.path}')));
+  } on Object catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('$e')));
+  }
+}
+
+void _writeSigned(
+  AppState s,
+  Message m,
+  String path, {
+  required bool delivery,
+}) {
+  final box = s.boxById(m.boxId);
+  if (box == null) throw UserError('Schránka zprávy tu není.');
+  if (delivery) {
+    s.localOp(box, 'save_delivery_zfo', {'dm_id': m.dmId, 'path': path});
+  } else {
+    s.core?.call('save_zfo', ['', m.boxId, int.parse(m.dmId), path]);
+  }
 }
 
 Future<void> _runAction(BuildContext context, Message m, _Action a) async {
@@ -166,14 +288,109 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
         },
       );
     case _Action.saveDelivery:
+      await saveSignedFile(context, m, delivery: true);
+    case _Action.saveZfo:
+      await saveSignedFile(context, m);
+    case _Action.openZfo || _Action.openDelivery:
+      final delivery = a == _Action.openDelivery;
+      final path = s.tempPath('${delivery ? 'DD' : 'DZ'}_${m.dmId}.zfo');
+      if (path == null) return;
       try {
-        final path = s.tempPath('DD_${m.dmId}.zfo')!;
-        s.localOp(box, 'save_delivery_zfo', {...args, 'path': path});
-        messenger.showSnackBar(
-          SnackBar(content: Text('Doručenka uložena: $path')),
-        );
+        _writeSigned(s, m, path, delivery: delivery);
+        await s.core?.openFile(path);
       } on Object catch (e) {
         messenger.showSnackBar(SnackBar(content: Text('$e')));
+      }
+    case _Action.saveAttachments:
+      final atts = await s.loadAttachments(m);
+      if (atts.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Zpráva nemá přílohy.')),
+        );
+        return;
+      }
+      final dir = await getDirectoryPath(confirmButtonText: 'Uložit sem');
+      if (dir == null) return;
+      var saved = 0;
+      for (final att in atts) {
+        final from = s.attachmentFile(m, att);
+        if (from == null) continue;
+        await File(from).copy('$dir${Platform.pathSeparator}${att.name}');
+        saved++;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('Uloženo příloh: $saved do $dir')),
+      );
+    case _Action.template:
+      // Same recipient, subject, references and files, as a new message.
+      final files = [
+        for (final att in await s.loadAttachments(m)) ?s.attachmentFile(m, att),
+      ];
+      if (!context.mounted) return;
+      await showCompose(
+        context,
+        Draft(
+          fromBoxId: m.boxId,
+          recipients: [
+            if (m.counterpartyBoxId != null)
+              (boxId: m.counterpartyBoxId!, name: m.counterparty),
+          ],
+          subject: m.subject,
+          senderRef: m.direction == Direction.sent ? m.ourRef : null,
+          recipientRef: m.direction == Direction.sent ? m.theirRef : null,
+          files: files,
+        ),
+      );
+    case _Action.deadline:
+      final d = await showDatePicker(
+        context: context,
+        initialDate: m.deadline ?? DateTime.now().add(const Duration(days: 15)),
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now().add(const Duration(days: 730)),
+        helpText: 'Lhůta pro reakci',
+      );
+      if (d != null) s.setDeadline(m.dmId, d);
+    case _Action.tag:
+      final tag = await _askTag(context, m);
+      if (tag != null && tag.trim().isNotEmpty) s.setTag(m, tag.trim(), true);
+    case _Action.redownload:
+      try {
+        await s.redownload(m);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Zpráva je znovu stažená z ISDS.')),
+        );
+      } on Object catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Zprávu se nepodařilo stáhnout: $e')),
+        );
+      }
+    case _Action.deleteLocal:
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Smazat zprávu jen v počítači?'),
+          content: Text(
+            'Zpráva i podepsaný originál zmizí z tohoto archivu, a tím ze všech '
+            'zařízení, která ho sdílejí. V ISDS zůstane, dokud ji ISDS samo '
+            'nesmaže (${dayDate(m.isdsDeletion)}), a do té doby jde znovu stáhnout.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Zrušit'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Smazat v počítači'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      try {
+        s.deleteLocal(m);
+      } on Object catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text('Smazání selhalo: $e')));
       }
     case _Action.forward:
       final zfo = await s.saveZfo(m);
@@ -188,11 +405,14 @@ Future<void> _runAction(BuildContext context, Message m, _Action a) async {
           files: [zfo],
         ),
       );
-    case _Action.email:
-      // The signed original and the attachments go into a new e-mail.
+    case _Action.email || _Action.emailZfo || _Action.emailAttachments:
+      // The signed original and/or the attachments go into a new e-mail.
+      final zfo = a == _Action.emailAttachments ? null : await s.saveZfo(m);
       final files = <String>[
-        ?await s.saveZfo(m),
-        for (final a in await s.loadAttachments(m)) ?s.attachmentFile(m, a),
+        ?zfo,
+        if (a != _Action.emailZfo)
+          for (final att in await s.loadAttachments(m))
+            ?s.attachmentFile(m, att),
       ];
       if (files.isEmpty) return;
       if (Platform.isMacOS) {
@@ -298,142 +518,73 @@ String _time(String raw) {
   return t == null ? raw : longDate(t.toLocal());
 }
 
-/// Right-click (or long-press) menu of a message in the list.
-Future<void> showMessageMenu(
-  BuildContext context,
-  Offset pos,
-  Message m,
-) async {
-  final s = AppScope.of(context);
-  final received = m.direction == Direction.received;
-  final choice = await showMenu<String>(
-    context: context,
-    position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx, pos.dy),
-    items: [
-      const PopupMenuItem(value: 'open', child: Text('Otevřít')),
-      if (received)
-        PopupMenuItem(
-          value: 'read',
-          child: Text(
-            m.isRead ? 'Označit jako nepřečtené' : 'Označit jako přečtené',
-          ),
-        ),
-      const PopupMenuDivider(),
-      if (received)
-        const PopupMenuItem(value: 'reply', child: Text('Odpovědět')),
-      const PopupMenuItem(value: 'forward', child: Text('Přeposlat')),
-      const PopupMenuItem(value: 'email', child: Text('Poslat e-mailem')),
-      const PopupMenuItem(
-        value: 'records',
-        child: Text('Uložit do spisové služby…'),
+/// Right-click (or long-press) menu of a message in the list, at [pos].
+Future<void> showMessageMenu(BuildContext context, Offset pos, Message m) {
+  final overlay = Overlay.of(context);
+  final box = overlay.context.findRenderObject() as RenderBox;
+  final at = box.globalToLocal(pos);
+  final controller = MenuController();
+  final done = Completer<void>();
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => Positioned(
+      left: at.dx,
+      top: at.dy,
+      child: MenuAnchor(
+        controller: controller,
+        onClose: () {
+          // Let a chosen item run before the anchor goes away.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (entry.mounted) entry.remove();
+            if (!done.isCompleted) done.complete();
+          });
+        },
+        menuChildren: _menu(context, m, inList: true),
+        child: const SizedBox.shrink(),
       ),
-      const PopupMenuDivider(),
-      const PopupMenuItem(
-        value: 'zfo',
-        child: Text('Uložit podepsanou zprávu (ZFO)'),
-      ),
-      const PopupMenuItem(value: 'print', child: Text('Obálka do PDF / tisk')),
-      const PopupMenuItem(
-        value: 'delivery',
-        child: Text('Doručenka a události'),
-      ),
-      const PopupMenuDivider(),
-      const PopupMenuItem(value: 'deadline', child: Text('Nastavit lhůtu…')),
-      const PopupMenuItem(value: 'tag', child: Text('Přidat štítek…')),
-      const PopupMenuItem(value: 'ai', child: Text('Najít termíny (AI)')),
-      const PopupMenuDivider(),
-      const PopupMenuItem(value: 'verify', child: Text('Ověřit zprávu v ISDS')),
-      const PopupMenuItem(value: 'author', child: Text('Kdo zprávu odeslal')),
-      const PopupMenuItem(
-        value: 'resign',
-        child: Text('Obnovit časové razítko'),
-      ),
-      const PopupMenuItem(value: 'erase', child: Text('Smazat v ISDS…')),
-    ],
+    ),
   );
-  if (choice == null || !context.mounted) return;
-  switch (choice) {
-    case 'open':
-      s.open(m.dmId);
-    case 'read':
-      s.toggleRead(m.dmId);
-    case 'reply':
-      await showCompose(context, Draft.reply(m));
-    case 'zfo':
-      final path = await s.saveZfo(m);
-      if (path != null && context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Uloženo: $path')));
-      }
-    case 'print':
-      await printEnvelope(context, m);
-    case 'deadline':
-      final d = await showDatePicker(
-        context: context,
-        initialDate: m.deadline ?? DateTime.now().add(const Duration(days: 15)),
-        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-        lastDate: DateTime.now().add(const Duration(days: 730)),
-        helpText: 'Lhůta pro reakci',
-      );
-      if (d != null) s.setDeadline(m.dmId, d);
-    case 'tag':
-      final c = TextEditingController();
-      final tag = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Přidat štítek'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+  overlay.insert(entry);
+  WidgetsBinding.instance.addPostFrameCallback((_) => controller.open());
+  return done.future;
+}
+
+Future<String?> _askTag(BuildContext context, Message m) {
+  final s = AppScope.of(context);
+  final c = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Přidat štítek'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: c,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Název štítku'),
+            onSubmitted: (v) => Navigator.pop(ctx, v),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
             children: [
-              TextField(
-                controller: c,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Název štítku'),
-                onSubmitted: (v) => Navigator.pop(ctx, v),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: [
-                  for (final t in s.allTags.where((t) => !m.tags.contains(t)))
-                    ActionChip(
-                      label: Text(t),
-                      onPressed: () => Navigator.pop(ctx, t),
-                    ),
-                ],
-              ),
+              for (final t in s.allTags.where((t) => !m.tags.contains(t)))
+                ActionChip(label: Text(t), onPressed: () => Navigator.pop(ctx, t)),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Zrušit'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, c.text),
-              child: const Text('Přidat'),
-            ),
-          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Zrušit'),
         ),
-      );
-      if (tag != null && tag.trim().isNotEmpty) s.setTag(m, tag.trim(), true);
-    case 'ai':
-      await showAiAnalysis(context, m);
-    case 'forward':
-      await _runAction(context, m, _Action.forward);
-    case 'email':
-      await _runAction(context, m, _Action.email);
-    case 'records':
-      await _runAction(context, m, _Action.records);
-    case 'delivery':
-      await _runAction(context, m, _Action.delivery);
-    case 'verify':
-      await _runAction(context, m, _Action.verify);
-    case 'author':
-      await _runAction(context, m, _Action.author);
-    case 'resign':
-      await _runAction(context, m, _Action.resign);
-    case 'erase':
-      await _runAction(context, m, _Action.erase);
-  }
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, c.text),
+          child: const Text('Přidat'),
+        ),
+      ],
+    ),
+  );
 }

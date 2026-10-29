@@ -96,6 +96,18 @@ class Attachment {
 /// Period a message stays in ISDS before its content is deleted.
 const isdsRetention = Duration(days: 90);
 
+/// How far the message is dealt with, as the original app keeps it
+/// (`process_state`: 0, 1, 2).
+enum ProcessState {
+  unsettled('Nevyřízeno'),
+  inProgress('Vyřizuje se'),
+  settled('Vyřízeno');
+
+  final String label;
+
+  const ProcessState(this.label);
+}
+
 class Message {
   final String boxId;
   final String dmId;
@@ -122,6 +134,8 @@ class Message {
   /// Free note, shared with the original app (`tag.db`).
   final String? note;
 
+  final ProcessState processState;
+
   const Message({
     required this.boxId,
     required this.dmId,
@@ -139,6 +153,7 @@ class Message {
     this.tags = const [],
     this.deadline,
     this.note,
+    this.processState = ProcessState.unsettled,
   });
 
   DateTime get isdsDeletion => delivered.add(isdsRetention);
@@ -151,6 +166,7 @@ class Message {
     List<Attachment>? attachments,
     String? note,
     bool clearNote = false,
+    ProcessState? processState,
   }) => Message(
     boxId: boxId,
     dmId: dmId,
@@ -168,6 +184,7 @@ class Message {
     tags: tags ?? this.tags,
     deadline: clearDeadline ? null : (deadline ?? this.deadline),
     note: clearNote ? null : (note ?? this.note),
+    processState: processState ?? this.processState,
   );
 }
 

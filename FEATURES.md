@@ -38,7 +38,13 @@ Stav: ✅ hotovo · 🧪 hotovo, ale proti ISDS zatím neověřeno · ⬜ chybí
 | Ověření souboru ZFO v ISDS | 🧪 | `AuthenticateMessage` |
 | Lokální ověření podpisu a časového razítka | ✅ | ověřeno na vzorových i tvých zprávách |
 | Autor zprávy | 🧪 | `GetMessageAuthor2` |
-| Smazání zprávy v ISDS | 🧪 | |
+| Smazání zprávy v ISDS | 🧪 | originál zůstane v archivu |
+| Smazání zprávy jen v počítači | ✅ | jako originál, i s certifikáty |
+| Stav vyřízení (nevyřízeno, vyřizuje se, vyřízeno) | ✅ | `process_state`, sdílený s originálem |
+| Použít zprávu jako šablonu | ✅ | adresát, věc, č. j., přílohy |
+| Doručenka a obálka do PDF, uložení ZFO zprávy i doručenky | ✅ | |
+| Otevřít ZFO v jiné aplikaci, poslat e-mailem (ZFO, přílohy, obojí) | ✅ | |
+| Stáhnout zprávu znovu z ISDS | 🧪 | stará kopie se nahradí až po stažení |
 | Seznam smazaných zpráv | 🧪 | Informace o schránce |
 | Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB |
 | Štítky (`tag.db`) | ✅ | |

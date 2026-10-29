@@ -482,4 +482,40 @@ void main() {
       reason: 'the sample has a box without deadlines',
     );
   });
+
+  testWidgets('the message menu marks a message settled and deletes it here', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = _sample();
+    await tester.pumpWidget(DatovkaApp(state: state));
+    final m = state.visible.first;
+    final row = find.text(m.subject).first;
+
+    await tester.tap(row, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    for (final label in ['Označit', 'Uložit', 'ISDS', 'Smazat jen v počítači…']) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+    await tester.tap(find.text('Označit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Vyřízeno'));
+    await tester.pumpAndSettle();
+    expect(
+      state.visible.firstWhere((x) => x.dmId == m.dmId).processState,
+      ProcessState.settled,
+    );
+    expect(find.byIcon(Icons.task_alt), findsOneWidget);
+
+    await tester.tap(row, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Smazat jen v počítači…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Smazat v počítači'));
+    await tester.pumpAndSettle();
+    expect(state.visible.where((x) => x.dmId == m.dmId), isEmpty);
+  });
 }

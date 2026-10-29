@@ -2,6 +2,8 @@
 # Sestaví samostatnou datovka-ng.app s jádrem v Rustu uvnitř balíku.
 set -e
 root=$(cd "$(dirname "$0")/.." && pwd)
+# target may link into Caches, which macOS empties when the disk runs low.
+[ -L "$root/target" ] && mkdir -p "$(readlink "$root/target")"
 cargo build --release -p datovka-ffi --manifest-path "$root/Cargo.toml"
 cd "$root/app"
 # Documents is synced by iCloud, which tags files with extended attributes that

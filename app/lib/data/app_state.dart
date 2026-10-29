@@ -903,6 +903,55 @@ class AppState extends ChangeNotifier {
     return m.copyWith(isRead: next);
   });
 
+  /// Nevyřízeno / vyřizuje se / vyřízeno, shared with the original app.
+  void setProcessState(Message m, ProcessState state) {
+    final box = boxById(m.boxId);
+    final c = core;
+    if (c != null && box != null) {
+      try {
+        localOp(box, 'process_state', {
+          'dm_id': m.dmId,
+          'state': state.index,
+          'device': c.deviceName,
+        });
+      } on Object catch (e) {
+        actionError = '$e';
+        notifyListeners();
+        return;
+      }
+    }
+    _update(m.dmId, (x) => x.copyWith(processState: state));
+  }
+
+  /// Removes the message from this archive only; ISDS keeps it until it
+  /// deletes it itself.
+  void deleteLocal(Message m) {
+    final box = boxById(m.boxId);
+    final c = core;
+    if (c != null && box != null) {
+      localOp(box, 'delete_local', {'dm_id': m.dmId, 'device': c.deviceName});
+    }
+    if (m.direction == Direction.received && !m.isRead) _adjustUnread(m, -1);
+    _messages = [for (final x in _messages) if (x.dmId != m.dmId) x];
+    _attachments.remove(m.dmId);
+    if (listTotal > 0) listTotal -= 1;
+    if (selectedId == m.dmId) selectedId = null;
+    picked.remove(m.dmId);
+    notifyListeners();
+  }
+
+  /// Downloads the message from ISDS again and replaces the stored copy.
+  Future<void> redownload(Message m) async {
+    final box = boxById(m.boxId);
+    if (box == null) return;
+    await op(box, 'redownload', {
+      'dm_id': m.dmId,
+      'incoming': m.direction == Direction.received,
+    });
+    _attachments.remove(m.dmId);
+    if (live) await _loadList(_epoch);
+  }
+
   void setDeadline(String dmId, DateTime? deadline) {
     final m = _messages.where((x) => x.dmId == dmId).firstOrNull;
     final box = m == null ? null : boxById(m.boxId);
