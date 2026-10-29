@@ -12,6 +12,10 @@
   Pracuje se stejným archivem jako původní Datovka, jen je rychlejší a přehlednější.
 </p>
 
+<p align="center">
+  <a href="#ke-stažení"><b>Ke stažení: Mac · Windows · Linux · Android</b></a>
+</p>
+
 <p align="center"><img src="docs/snimek.png" alt="Datovka NG: schránky, seznam zpráv a detail zprávy" width="860"></p>
 
 > **Stav: alfa.** Každodenní práce se zprávami funguje. Některé funkce zatím
@@ -64,14 +68,14 @@ a měsících.
 
 ## Ke stažení
 
-Balíčky jsou u [vydání](https://github.com/intiocz/datovka-ng/releases):
+Nejnovější verze, přímo ke stažení (starší jsou u [vydání](https://github.com/intiocz/datovka-ng/releases)):
 
-| Systém | Soubor | Jak nainstalovat |
+| Systém | Stáhnout | Jak nainstalovat |
 |---|---|---|
-| macOS 12 a novější | `DatovkaNG-macos.zip` | rozbalit, přetáhnout do Aplikací, poprvé otevřít pravým tlačítkem → Otevřít |
-| Ubuntu, Debian, Mint | `DatovkaNG-linux-amd64.deb` | `sudo apt install ./DatovkaNG-linux-amd64.deb` |
-| Windows 10 a 11 | `DatovkaNG-windows-amd64.zip` | rozbalit a spustit `datovka-ng.exe` (zatím málo vyzkoušené) |
-| Android 7 a novější | `DatovkaNG-android.apk` | otevřít v telefonu a povolit instalaci (zkušebně) |
+| macOS 12 a novější | [**DatovkaNG-macos.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-macos.zip) | rozbalit, přetáhnout do Aplikací, poprvé otevřít pravým tlačítkem → Otevřít |
+| Ubuntu, Debian, Mint | [**DatovkaNG-linux-amd64.deb**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-amd64.deb) | `sudo apt install ./DatovkaNG-linux-amd64.deb` |
+| Windows 10 a 11 | [**DatovkaNG-windows-amd64.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-windows-amd64.zip) | rozbalit a spustit `datovka-ng.exe` (zatím málo vyzkoušené) |
+| Android 7 a novější | [**DatovkaNG-android.apk**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-android.apk) | otevřít v telefonu a povolit instalaci (zkušebně) |
 | iPhone | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
 
 Aplikace se při startu podívá, jestli není novější vydání. Na Macu, Linuxu
