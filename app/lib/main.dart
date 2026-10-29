@@ -12,6 +12,7 @@ import 'data/archive_location.dart';
 import 'data/core_bridge.dart';
 import 'data/data_folder.dart';
 import 'data/gov_services.dart';
+import 'data/settings.dart';
 import 'theme.dart';
 import 'ui/app_lock.dart';
 import 'ui/app_scope.dart';
@@ -172,19 +173,35 @@ class DatovkaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScope(
       state: state,
-      child: MaterialApp(
-        title: 'Datovka NG',
-        debugShowCheckedModeBanner: false,
-        navigatorKey: _navKey,
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
-        locale: const Locale('cs'),
-        supportedLocales: const [Locale('cs'), Locale('en')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: AppLock(
-          child: _Menus(
-            state: state,
-            child: const ZfoDrop(child: Home()),
+      child: ValueListenableBuilder<Settings>(
+        valueListenable: state.appearance,
+        builder: (context, look, _) => MaterialApp(
+          title: 'Datovka NG',
+          debugShowCheckedModeBanner: false,
+          navigatorKey: _navKey,
+          theme: buildTheme(Brightness.light),
+          darkTheme: buildTheme(Brightness.dark),
+          themeMode: look.themeMode,
+          locale: const Locale('cs'),
+          supportedLocales: const [Locale('cs'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          // The chosen size on top of the system's own text size.
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            return MediaQuery(
+              data: mq.copyWith(
+                textScaler: TextScaler.linear(
+                  mq.textScaler.scale(1) * look.textScale,
+                ),
+              ),
+              child: child!,
+            );
+          },
+          home: AppLock(
+            child: _Menus(
+              state: state,
+              child: const ZfoDrop(child: Home()),
+            ),
           ),
         ),
       ),

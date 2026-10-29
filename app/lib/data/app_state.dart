@@ -115,9 +115,13 @@ class AppState extends ChangeNotifier {
   bool _fetchingSent = false;
   Settings settings = const Settings();
 
+  /// Text size and light or dark look; the app rebuilds only on these.
+  final appearance = ValueNotifier<Settings>(const Settings());
+
   /// Applies preferences; restarts the automatic download timer.
   void applySettings(Settings st, {bool initial = false}) {
     settings = st;
+    appearance.value = st;
     try {
       core?.call('set_proxy', [st.proxy]);
     } on Object catch (e) {
@@ -141,6 +145,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    appearance.dispose();
     _timer?.cancel();
     _searchTimer?.cancel();
     searchFocus.dispose();

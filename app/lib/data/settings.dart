@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Per-device preferences (not synced: each device decides how often it
@@ -20,12 +21,23 @@ class Settings {
   /// delivered and downloaded, instead of waiting for the next download.
   final bool fetchSentNow;
 
+  /// Text size: -1 a little smaller, 0 as designed, 1 a little larger.
+  final int textSize;
+
+  /// Light or dark look, or as the system has it.
+  final ThemeMode themeMode;
+
+  /// How much [textSize] scales the text.
+  double get textScale => const [0.92, 1.0, 1.08][textSize.clamp(-1, 1) + 1];
+
   const Settings({
     this.syncMinutes = 15,
     this.syncOnStart = true,
     this.markReadInIsds = false,
     this.proxy = '',
     this.fetchSentNow = true,
+    this.textSize = 0,
+    this.themeMode = ThemeMode.system,
   });
 
   static Future<Settings> load() async {
@@ -36,6 +48,9 @@ class Settings {
       markReadInIsds: p.getBool('markReadInIsds') ?? false,
       proxy: p.getString('proxy') ?? '',
       fetchSentNow: p.getBool('fetchSentNow') ?? true,
+      textSize: p.getInt('textSize') ?? 0,
+      themeMode: ThemeMode.values.asNameMap()[p.getString('themeMode')] ??
+          ThemeMode.system,
     );
   }
 
@@ -46,6 +61,8 @@ class Settings {
     await p.setBool('markReadInIsds', markReadInIsds);
     await p.setString('proxy', proxy);
     await p.setBool('fetchSentNow', fetchSentNow);
+    await p.setInt('textSize', textSize);
+    await p.setString('themeMode', themeMode.name);
   }
 
   Settings copyWith({
@@ -54,11 +71,15 @@ class Settings {
     bool? markReadInIsds,
     String? proxy,
     bool? fetchSentNow,
+    int? textSize,
+    ThemeMode? themeMode,
   }) => Settings(
     syncMinutes: syncMinutes ?? this.syncMinutes,
     syncOnStart: syncOnStart ?? this.syncOnStart,
     markReadInIsds: markReadInIsds ?? this.markReadInIsds,
     proxy: proxy ?? this.proxy,
     fetchSentNow: fetchSentNow ?? this.fetchSentNow,
+    textSize: textSize ?? this.textSize,
+    themeMode: themeMode ?? this.themeMode,
   );
 }

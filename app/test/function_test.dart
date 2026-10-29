@@ -3,11 +3,13 @@ import 'package:datovka/data/ai.dart';
 import 'package:datovka/data/mailbox.dart';
 import 'package:datovka/data/models.dart';
 import 'package:datovka/data/archive_location.dart';
+import 'package:datovka/data/settings.dart';
 import 'package:datovka/data/updates.dart';
 import 'package:datovka/data/user_error.dart';
 import 'package:datovka/main.dart';
 import 'package:datovka/ui/ai_dialog.dart';
 import 'package:datovka/ui/app_lock.dart';
+import 'package:datovka/ui/home.dart';
 import 'package:datovka/ui/format.dart' show monthNames;
 import 'package:datovka/ui/message_list.dart';
 import 'package:datovka/ui/settings_dialog.dart';
@@ -592,4 +594,39 @@ void main() {
     await run;
     expect(state.sync.storageName, 'původní Datovka');
   });
+
+  for (final width in [1100.0, 390.0]) {
+    testWidgets('text size and dark look apply after saving ($width)', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final state = _sample();
+      await tester.pumpWidget(DatovkaApp(state: state));
+      MaterialApp app() => tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(app().themeMode, ThemeMode.system);
+
+      final ctx = tester.element(find.byType(Scaffold).first);
+      showSettings(ctx, state);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Zobrazení'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Větší'));
+      await tester.tap(find.text('Tmavý'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Uložit'));
+      await tester.pumpAndSettle();
+
+      expect(app().themeMode, ThemeMode.dark);
+      final scaler = MediaQuery.textScalerOf(
+        tester.element(find.byType(Home)),
+      );
+      expect(scaler.scale(10), closeTo(10.8, 0.01));
+      final saved = await Settings.load();
+      expect((saved.textSize, saved.themeMode), (1, ThemeMode.dark));
+    });
+  }
 }

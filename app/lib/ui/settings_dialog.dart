@@ -36,6 +36,7 @@ Future<void> showSettings(
 
 enum _Page {
   sync('Stahování', Icons.sync),
+  display('Zobrazení', Icons.palette_outlined),
   lock('Zámek', Icons.lock_outline),
   network('Síť', Icons.lan_outlined),
   archive('Archiv', Icons.folder_outlined),
@@ -351,6 +352,35 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             'Stahuje se jen ze schránek s uloženým heslem nebo s platným '
             'přihlášením. Stažení přijatých zpráv ISDS počítá jako přihlášení do '
             'schránky, tedy jako doručení čekajících zpráv.',
+          ),
+        ];
+      case _Page.display:
+        return [
+          _Group(
+            children: [
+              _Choice<int>(
+                title: 'Velikost písma',
+                value: _st.textSize,
+                options: const {-1: 'Menší', 0: 'Běžná', 1: 'Větší'},
+                onChanged: (v) =>
+                    setState(() => _st = _st.copyWith(textSize: v)),
+              ),
+              _Choice<ThemeMode>(
+                title: 'Vzhled',
+                value: _st.themeMode,
+                options: const {
+                  ThemeMode.system: 'Podle systému',
+                  ThemeMode.light: 'Světlý',
+                  ThemeMode.dark: 'Tmavý',
+                },
+                onChanged: (v) =>
+                    setState(() => _st = _st.copyWith(themeMode: v)),
+              ),
+            ],
+          ),
+          const _Note(
+            'Platí jen pro toto zařízení. Velikost písma se přičítá k velikosti '
+            'nastavené v systému.',
           ),
         ];
       case _Page.lock:
@@ -682,6 +712,45 @@ class _Row extends StatelessWidget {
             trailing,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A setting with a few named choices, the title above the buttons so it
+/// fits a phone too.
+class _Choice<T> extends StatelessWidget {
+  final String title;
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T> onChanged;
+
+  const _Choice({
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          SegmentedButton<T>(
+            showSelectedIcon: false,
+            segments: [
+              for (final o in options.entries)
+                ButtonSegment(value: o.key, label: Text(o.value)),
+            ],
+            selected: {value},
+            onSelectionChanged: (v) => onChanged(v.first),
+          ),
+        ],
       ),
     );
   }

@@ -173,8 +173,9 @@ případně první schránkou s uloženým heslem.
   přetáhněte do okna), přehled korespondence do CSV, záloha a obnova,
   AI asistent, nastavení.
 - **Nastavení** (⌘,): jak často stahovat, stahování po spuštění, stažení
-  odeslané zprávy hned po dodání, označování přečtení v ISDS, síť (proxy),
-  archiv, asistent, aktualizace. Na telefonu také zámek.
+  odeslané zprávy hned po dodání, označování přečtení v ISDS, zobrazení
+  (velikost písma o kousek menší nebo větší, světlý nebo tmavý vzhled),
+  síť (proxy), archiv, asistent, aktualizace. Na telefonu také zámek.
 
 ## Další nástroje
 
