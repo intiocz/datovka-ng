@@ -112,6 +112,7 @@ class AppState extends ChangeNotifier {
 
   Timer? _timer;
   bool _disposed = false;
+  bool _fetchingSent = false;
   Settings settings = const Settings();
 
   /// Applies preferences; restarts the automatic download timer.
@@ -1007,6 +1008,11 @@ class AppState extends ChangeNotifier {
   /// notification. They are listed in the UI until the user logs in.
   Future<void> runSync() async {
     if (sync.running) return;
+    // ISDS refuses a second request from the same box at the same time.
+    while (_fetchingSent) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    if (sync.running) return;
     final c = core;
     sync = SyncState(
       lastSync: sync.lastSync,
@@ -1551,8 +1557,11 @@ class AppState extends ChangeNotifier {
       await Future<void>.delayed(pause);
       if (_disposed) return;
       if (sync.running) continue;
+      // Sent messages only: the list of received ones would deliver what
+      // waits in the box (ISDS counts it as logging in).
+      _fetchingSent = true;
       try {
-        final r = await c.callAsync('sync', [
+        final r = await c.callAsync('sync_sent', [
           '',
           from.username,
           c.deviceName,
@@ -1563,6 +1572,8 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       } on Object {
         // The regular download will try again.
+      } finally {
+        _fetchingSent = false;
       }
       if (got >= count) return;
     }

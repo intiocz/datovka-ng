@@ -101,6 +101,28 @@ pub async fn sync_with(
     lock: &WriteLock,
     account: &LegacyAccount,
 ) -> Result<SyncReport> {
+    sync_directions(client, store, lock, account, &[Direction::Received, Direction::Sent]).await
+}
+
+/// Downloads new sent messages only. Unlike the list of received messages
+/// (`GetListOfReceivedMessages`), this never counts as logging in to the box,
+/// so it delivers nothing that waits there (ISDS operating rules).
+pub async fn sync_sent(
+    client: &Client,
+    store: &LegacyStore,
+    lock: &WriteLock,
+    account: &LegacyAccount,
+) -> Result<SyncReport> {
+    sync_directions(client, store, lock, account, &[Direction::Sent]).await
+}
+
+async fn sync_directions(
+    client: &Client,
+    store: &LegacyStore,
+    lock: &WriteLock,
+    account: &LegacyAccount,
+    directions: &[Direction],
+) -> Result<SyncReport> {
     let mut report = SyncReport {
         username: account.username.clone(),
         ..Default::default()
@@ -108,7 +130,7 @@ pub async fn sync_with(
     // Messages an older Datovka NG stored without the details the original
     // app needs; quick when there are none.
     let _ = store.complete_signature_details(lock, account);
-    for direction in [Direction::Received, Direction::Sent] {
+    for &direction in directions {
         let _ = lock.refresh();
         let list = match direction {
             Direction::Received => client.received_messages(&ListFilter::default()).await?,

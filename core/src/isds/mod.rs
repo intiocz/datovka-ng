@@ -462,9 +462,10 @@ impl Client {
         })
     }
 
-    /// Login with a client certificate (PKCS#12). With a password it is the
-    /// commercial-certificate login (`certds/`), without one the system
-    /// certificate login of a box (`hspis/`).
+    /// Login with a client certificate (PKCS#12). With a password it is a
+    /// user certificate plus name and password (`certds/`), without one the
+    /// system certificate of a box, which needs no name (`cert/`). `hspis/`
+    /// is for hosted records services only (ISDS operating rules, 26. 6. 2026).
     #[cfg(not(target_os = "android"))]
     pub fn with_certificate(
         username: &str,
@@ -490,15 +491,11 @@ impl Client {
         } else {
             "https://ws1c.datovka.gov.cz/"
         };
-        let prefix = if password.is_some() {
-            "certds/"
-        } else {
-            "hspis/"
-        };
+        let prefix = if password.is_some() { "certds/" } else { "cert/" };
         Ok(Self {
             http,
             base: format!("{host}{prefix}"),
-            basic: Some((username.to_string(), password.unwrap_or("").to_string())),
+            basic: password.map(|p| (username.to_string(), p.to_string())),
             vodz_base: format!(
                 "{}{prefix}",
                 if test_env {

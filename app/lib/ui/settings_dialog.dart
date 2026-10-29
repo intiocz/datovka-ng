@@ -349,8 +349,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           ),
           const _Note(
             'Stahuje se jen ze schránek s uloženým heslem nebo s platným '
-            'přihlášením. Přihlášení do schránky ISDS počítá jako doručení '
-            'čekajících zpráv.',
+            'přihlášením. Stažení přijatých zpráv ISDS počítá jako přihlášení do '
+            'schránky, tedy jako doručení čekajících zpráv.',
           ),
         ];
       case _Page.lock:

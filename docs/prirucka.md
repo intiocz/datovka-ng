@@ -70,8 +70,10 @@ Tlačítko obnovit vlevo dole stáhne nové přijaté a odeslané zprávy ze vš
 schránek, které se umějí přihlásit bez vás, tedy jménem a uloženým heslem.
 Ke každé zprávě se uloží i podepsaný originál a doručenka.
 
-> Přihlášení do schránky se v ISDS počítá jako doručení čekajících zpráv
-> (doručení přihlášením). Platí to stejně jako u původní Datovky nebo webu.
+> Stažení seznamu přijatých zpráv ISDS počítá jako přihlášení do schránky,
+> tedy jako doručení čekajících zpráv (doručení přihlášením). Platí to stejně
+> jako u původní Datovky nebo webu. Stažení odeslaných zpráv, ověření zprávy
+> ani hledání v adresáři nic nedoručí (Provozní řád ISDS, 26. 6. 2026).
 
 Schránky s přihlášením přes SMS, kód z aplikace nebo mobilní klíč se na pozadí
 nikdy nepřihlašují. Když jim vyprší přihlášení, objeví se nad seznamem tichý

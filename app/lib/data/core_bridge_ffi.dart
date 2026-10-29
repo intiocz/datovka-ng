@@ -166,7 +166,7 @@ class CoreBridge {
           _Str Function(_Str, _Str, _Str, _Str),
           _Str Function(_Str, _Str, _Str, _Str)
         >(symbol)(a[0] as _Str, a[1] as _Str, a[2] as _Str, a[3] as _Str);
-      case 'dk_sync':
+      case 'dk_sync' || 'dk_sync_sent':
         return _lib.lookupFunction<
           _Str Function(_Str, _Str, _Str),
           _Str Function(_Str, _Str, _Str)

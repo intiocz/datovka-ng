@@ -338,6 +338,26 @@ pub extern "C" fn dk_sync(
     username: *const c_char,
     device: *const c_char,
 ) -> *mut c_char {
+    sync(dir, username, device, false)
+}
+
+/// Downloads new sent messages only; never delivers waiting messages.
+#[no_mangle]
+pub extern "C" fn dk_sync_sent(
+    dir: *const c_char,
+    username: *const c_char,
+    device: *const c_char,
+) -> *mut c_char {
+    sync(dir, username, device, true)
+}
+
+fn sync(
+    dir: *const c_char,
+    username: *const c_char,
+    device: *const c_char,
+    sent_only: bool,
+) -> *mut c_char {
+    use datovka_core::legacy::sync::{sync_sent, sync_with};
     respond((|| {
         let s = store(dir)?;
         let acc = s.account(&arg(username)?).map_err(e)?;
@@ -348,8 +368,12 @@ pub extern "C" fn dk_sync(
         {
             lock::Acquire::Acquired(l) => {
                 let c = client(&acc)?;
-                let report = block_on(datovka_core::legacy::sync::sync_with(&c, &s, &l, &acc))?
-                    .map_err(|err| session_err(&acc, err))?;
+                let report = if sent_only {
+                    block_on(sync_sent(&c, &s, &l, &acc))?
+                } else {
+                    block_on(sync_with(&c, &s, &l, &acc))?
+                }
+                .map_err(|err| session_err(&acc, err))?;
                 Ok(serde_json::to_value(report).map_err(e)?)
             }
             lock::Acquire::HeldBy(i) => Err(format!(

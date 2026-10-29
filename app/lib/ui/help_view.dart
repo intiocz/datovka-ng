@@ -56,8 +56,9 @@ class HelpView extends StatelessWidget {
           const _H('Stahování a čtení'),
           const _P(
             'Tlačítko obnovit vlevo dole stáhne nové zprávy ze schránek, které se umějí '
-            'přihlásit samy, tedy jménem a uloženým heslem. Přihlášení do schránky se '
-            'v ISDS počítá jako doručení čekajících zpráv.',
+            'přihlásit samy, tedy jménem a uloženým heslem. Stažení seznamu přijatých '
+            'zpráv ISDS počítá jako přihlášení do schránky, tedy jako doručení '
+            'čekajících zpráv. Stažení odeslaných zpráv nic nedoručí.',
           ),
           const _P(
             'Schránka s SMS, kódem nebo mobilním klíčem se na pozadí nikdy nepřihlašuje. '
