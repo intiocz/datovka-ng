@@ -38,6 +38,10 @@ pub struct LegacyAccount {
     /// Raw base64 `pwd_code` (encrypted password).
     #[serde(skip)]
     pub pwd_code: Option<String>,
+    /// `database_dir`: the original app can keep the message databases of
+    /// an account in another folder. Empty means the archive folder.
+    #[serde(skip)]
+    pub db_dir: Option<String>,
 }
 
 impl LegacyAccount {
@@ -80,6 +84,24 @@ fn b64(v: &str) -> Option<String> {
     String::from_utf8(bytes).ok().filter(|s| !s.is_empty())
 }
 
+/// A string value as `QSettings` writes it: in quotes when it holds special
+/// characters, with `\\` and `\"` escaped.
+fn ini_string(v: &str) -> String {
+    let v = v
+        .strip_prefix('"')
+        .and_then(|v| v.strip_suffix('"'))
+        .unwrap_or(v);
+    let mut out = String::new();
+    let mut chars = v.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => out.extend(chars.next()),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 /// Parses the INI file; unknown keys are ignored.
 pub fn parse(text: &str) -> Vec<LegacyAccount> {
     let mut out: Vec<LegacyAccount> = Vec::new();
@@ -114,6 +136,7 @@ pub fn parse(text: &str) -> Vec<LegacyAccount> {
             "sync_with_all" => acc.sync_with_all = v == "true",
             "password" => acc.password = b64(v),
             "mep_token" => acc.mep_token = b64(v),
+            "database_dir" => acc.db_dir = Some(ini_string(v)).filter(|d| !d.is_empty()),
             "p12file" => {
                 acc.p12_file = Some(v.trim_matches('"').to_string()).filter(|p| !p.is_empty())
             }
@@ -173,6 +196,18 @@ pub fn public_account(a: &LegacyAccount, info: &super::BoxInfo, pin_unlocked: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_database_folder_of_an_account() {
+        let a = parse(
+            "[credentials]\nusername=aaa\ndatabase_dir=/Volumes/Data/Datovka\n\
+             [credentials2]\nusername=bbb\ndatabase_dir=\"C:/Data/Datovka, archiv\"\n\
+             [credentials3]\nusername=ccc\ndatabase_dir=\n",
+        );
+        assert_eq!(a[0].db_dir.as_deref(), Some("/Volumes/Data/Datovka"));
+        assert_eq!(a[1].db_dir.as_deref(), Some("C:/Data/Datovka, archiv"));
+        assert_eq!(a[2].db_dir, None);
+    }
 
     #[test]
     fn parses_accounts_in_order() {

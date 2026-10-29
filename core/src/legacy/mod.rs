@@ -194,12 +194,32 @@ impl LegacyStore {
         Ok(info)
     }
 
+    /// Folder with the message databases of an account: `database_dir` of
+    /// `dsgui.conf` when the original app was told to keep them elsewhere,
+    /// otherwise the archive folder. A relative path counts from the archive.
+    /// The archive is shared between computers, so a folder that does not
+    /// exist on this one falls back to the archive folder too.
+    pub fn db_dir(&self, account: &LegacyAccount) -> PathBuf {
+        match account.db_dir.as_deref().map(Path::new) {
+            Some(d) => {
+                let d = if d.is_absolute() { d.to_path_buf() } else { self.dir.join(d) };
+                if d.is_dir() {
+                    d
+                } else {
+                    self.dir.clone()
+                }
+            }
+            None => self.dir.clone(),
+        }
+    }
+
     /// Message databases of an account, newest year first.
     pub fn message_dbs(&self, account: &LegacyAccount) -> Result<Vec<PathBuf>> {
+        let dir = self.db_dir(account);
         let suffix = format!("___{}.db", if account.test_env { 1 } else { 0 });
         let single = format!("{}{}", account.username, suffix);
         let prefix = format!("{}_", account.username);
-        let mut dbs: Vec<PathBuf> = std::fs::read_dir(&self.dir)?
+        let mut dbs: Vec<PathBuf> = std::fs::read_dir(&dir)?
             .filter_map(|e| e.ok())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| {
@@ -210,7 +230,7 @@ impl LegacyStore {
                             .chars()
                             .all(|c| c.is_ascii_digit() || c.is_ascii_lowercase()))
             })
-            .map(|n| self.dir.join(n))
+            .map(|n| dir.join(n))
             .collect();
         dbs.sort();
         dbs.reverse();
@@ -301,60 +321,116 @@ impl LegacyStore {
         self.raw_blob(account, dm_id, "raw_delivery_info_data")
     }
 
+    /// Content of `raw_message_data` or `raw_delivery_info_data`: base64 in
+    /// the database, or, when the column is empty (high-volume messages of
+    /// the original app since 4.23), a file in the message folder.
     fn raw_blob(
         &self,
         account: &LegacyAccount,
         dm_id: i64,
         table: &str,
     ) -> Result<Option<Vec<u8>>> {
-        let c = Self::open_ro(&self.find_db(account, dm_id)?)?;
-        let data: Option<Vec<u8>> = c
+        let db = self.find_db(account, dm_id)?;
+        let c = Self::open_ro(&db)?;
+        let kind = if table == "raw_message_data" { "message_type" } else { "NULL" };
+        let row = c
             .query_row(
-                &format!("SELECT data FROM {table} WHERE message_id = ?1"),
+                &format!("SELECT data, {kind} FROM {table} WHERE message_id = ?1"),
                 [dm_id],
-                |r| column_bytes(r, 0),
+                |r| Ok((column_bytes(r, 0)?, r.get::<_, Option<i64>>(1)?)),
             )
-            .optional()?
-            .flatten();
-        data.map(|d| decode_stored(&d)).transpose()
+            .optional()?;
+        match row {
+            None => Ok(None),
+            Some((Some(d), _)) if !d.is_empty() => decode_stored(&d).map(Some),
+            Some((_, kind)) => {
+                let name = match kind {
+                    Some(t) => files::message_name(t, dm_id),
+                    None => files::delivery_name(dm_id),
+                };
+                Ok(std::fs::read(files::dir(&db, dm_id).join(name)).ok())
+            }
+        }
     }
 
     pub fn attachments(&self, account: &LegacyAccount, dm_id: i64) -> Result<Vec<AttachmentInfo>> {
-        let c = Self::open_ro(&self.find_db(account, dm_id)?)?;
+        let db = self.find_db(account, dm_id)?;
+        let c = Self::open_ro(&db)?;
         let mut stmt = c.prepare(
-            "SELECT id, _dmFileDescr, _dmMimeType, _dmFileSize, length(dmEncodedContent)
+            "SELECT id, _dmFileDescr, _dmMimeType, _dmFileSize, length(dmEncodedContent), attNum
              FROM files WHERE message_id = ?1 ORDER BY attNum, id",
         )?;
         let rows = stmt.query_map([dm_id], |r| {
             let size: Option<i64> = r.get(3)?;
             let b64_len: Option<i64> = r.get(4)?;
+            let name: Option<String> = r.get(1)?;
+            let num: Option<i64> = r.get(5)?;
+            // Kept in a file beside the database (high-volume message).
+            let in_file = || {
+                let path = files::attachment_path(&db, dm_id, num?, name.as_deref()?)?;
+                std::fs::metadata(path).ok().map(|m| m.len() as i64)
+            };
             Ok(AttachmentInfo {
                 id: r.get(0)?,
-                file_name: r
-                    .get::<_, Option<String>>(1)?
-                    .unwrap_or_else(|| "priloha".into()),
+                file_name: name.clone().unwrap_or_else(|| "priloha".into()),
                 mime_type: r.get(2)?,
-                size: size.filter(|s| *s > 0).or(b64_len.map(|l| l * 3 / 4)),
+                size: size
+                    .filter(|s| *s > 0)
+                    .or(b64_len.filter(|l| *l > 0).map(|l| l * 3 / 4))
+                    .or_else(in_file),
             })
         })?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
+    /// Content of an attachment: from the database, from its file beside the
+    /// database, or, when that is missing too, from the signed message, as
+    /// the original app reads it.
     pub fn attachment_content(
         &self,
         account: &LegacyAccount,
         dm_id: i64,
         id: i64,
     ) -> Result<Vec<u8>> {
-        let c = Self::open_ro(&self.find_db(account, dm_id)?)?;
-        let data = c
-            .query_row(
-                "SELECT dmEncodedContent FROM files WHERE message_id = ?1 AND id = ?2",
-                params![dm_id, id],
-                |r| column_bytes(r, 0),
-            )?
-            .unwrap_or_default();
-        decode_stored(&data)
+        let db = self.find_db(account, dm_id)?;
+        let c = Self::open_ro(&db)?;
+        let (data, num, name) = c.query_row(
+            "SELECT dmEncodedContent, attNum, _dmFileDescr FROM files
+             WHERE message_id = ?1 AND id = ?2",
+            params![dm_id, id],
+            |r| {
+                Ok((
+                    column_bytes(r, 0)?.unwrap_or_default(),
+                    r.get::<_, Option<i64>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                ))
+            },
+        )?;
+        drop(c);
+        if !data.is_empty() {
+            return decode_stored(&data);
+        }
+        let Some(num) = num.filter(|n| *n >= 0) else {
+            return Ok(Vec::new());
+        };
+        if let Some(path) = name
+            .as_deref()
+            .and_then(|n| files::attachment_path(&db, dm_id, num, n))
+        {
+            if let Ok(content) = std::fs::read(path) {
+                return Ok(content);
+            }
+        }
+        let zfo = self.zfo(account, dm_id)?.ok_or_else(|| Error::Isds {
+            code: "not-found".into(),
+            text: format!("příloha zprávy {dm_id} není uložená"),
+        })?;
+        crate::zfo::parse_message(&zfo)?
+            .attachments
+            .into_iter()
+            .nth(num as usize)
+            .map(|a| a.content)
+            .ok_or_else(|| Error::Zfo(format!("zpráva {dm_id} nemá přílohu č. {num}")))
     }
 
     /// Sets the local read flag, exactly like the original app does.
@@ -372,6 +448,51 @@ impl LegacyStore {
             params![dm_id, read],
         )?;
         Ok(())
+    }
+}
+
+/// Files the original app (since 4.23) keeps beside a message database for
+/// high-volume messages, instead of the database columns: the folder is the
+/// database path without `.db`, then the message ID.
+pub(crate) mod files {
+    use std::path::{Path, PathBuf};
+
+    /// `message_type` of `raw_message_data`: 1 received, 2 sent.
+    pub fn message_name(message_type: i64, dm_id: i64) -> String {
+        if message_type == 1 {
+            format!("DDZ_{dm_id}.zfo")
+        } else {
+            format!("ODZ_{dm_id}.zfo")
+        }
+    }
+
+    pub fn delivery_name(dm_id: i64) -> String {
+        format!("DD_{dm_id}.zfo")
+    }
+
+    pub fn dir(db: &Path, dm_id: i64) -> PathBuf {
+        db.with_extension("").join(dm_id.to_string())
+    }
+
+    /// `ATT_{dmID}_{attNum}_{name}`; `None` for a name that would leave the
+    /// folder.
+    pub fn attachment_path(db: &Path, dm_id: i64, num: i64, name: &str) -> Option<PathBuf> {
+        let safe = !name.is_empty() && !name.contains(['/', '\\']) && name != "..";
+        safe.then(|| dir(db, dm_id).join(format!("ATT_{dm_id}_{num}_{name}")))
+    }
+
+    /// Writes beside the target first and renames it in place, as the
+    /// original does, so the other app never reads half a file.
+    pub fn write(path: &Path, data: &[u8]) -> std::io::Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut part = path.as_os_str().to_owned();
+        part.push(".part");
+        let part = PathBuf::from(part);
+        std::fs::write(&part, data)?;
+        let _ = std::fs::remove_file(path);
+        std::fs::rename(&part, path)
     }
 }
 

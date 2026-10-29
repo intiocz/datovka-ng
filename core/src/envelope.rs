@@ -51,8 +51,13 @@ pub(crate) fn from_elements(elements: &[&Element]) -> Envelope {
         legal_title_par: text("dmLegalTitlePar"),
         legal_title_point: text("dmLegalTitlePoint"),
         qtimestamp_b64: text("dmQTimestamp").map(|v| v.split_whitespace().collect()),
-        atts_num: text("attsNum").and_then(|v| v.parse().ok()),
-        vodz: text("dmVODZ").map(|v| v == "true" || v == "1"),
+        // Attributes of the envelope in ISDS, elements in some older data.
+        atts_num: text("attsNum")
+            .or_else(|| attr("attsNum"))
+            .and_then(|v| v.parse().ok()),
+        vodz: text("dmVODZ")
+            .or_else(|| attr("dmVODZ"))
+            .map(|v| v == "true" || v == "1"),
         spec_mess_flag: attr("specMessFlag").and_then(|v| v.parse().ok()),
     }
 }
@@ -78,5 +83,16 @@ mod tests {
         assert!(parse_time("2026-10-27T10:20:30.123+01:00").is_some());
         assert!(parse_time("2026-10-27T10:20:30.123456").is_some());
         assert!(parse_time("bogus").is_none());
+    }
+
+    #[test]
+    fn high_volume_flag_is_an_attribute() {
+        let dm = crate::xml::parse(
+            br#"<dmDm dmID="1" dmVODZ="true" attsNum="3"><dmAnnotation>x</dmAnnotation></dmDm>"#,
+        )
+        .unwrap();
+        let e = from_elements(&[&dm]);
+        assert_eq!(e.vodz, Some(true));
+        assert_eq!(e.atts_num, Some(3));
     }
 }

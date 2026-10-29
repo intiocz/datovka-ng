@@ -1,12 +1,13 @@
 //! Storing messages downloaded from ISDS in the original Datovka databases,
 //! mirroring what `MessageDb` of the original app writes.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use chrono::{DateTime, Datelike, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
+use super::files;
 use super::lock::WriteLock;
 use super::{LegacyAccount, LegacyStore};
 use crate::envelope::parse_time;
@@ -71,7 +72,7 @@ impl LegacyStore {
         let key = delivery
             .map(|t| format!("{:04}", t.year()))
             .unwrap_or_else(|| "inv".into());
-        self.dir.join(format!(
+        self.db_dir(account).join(format!(
             "{}_{}___{}.db",
             account.username,
             key,
@@ -96,11 +97,27 @@ impl LegacyStore {
     /// Does nothing when the message is already stored.
     pub fn insert_message(
         &self,
+        lock: &WriteLock,
+        account: &LegacyAccount,
+        direction: Direction,
+        zfo: &[u8],
+        delivery_zfo: Option<&[u8]>,
+    ) -> Result<bool> {
+        self.insert_message_as(lock, account, direction, zfo, delivery_zfo, false)
+    }
+
+    /// Like [`insert_message`](Self::insert_message); `big` marks a message
+    /// downloaded as high-volume even when its envelope does not say so.
+    /// High-volume messages go into files beside the database, as the
+    /// original app keeps them since 4.23, so it reads them too.
+    pub fn insert_message_as(
+        &self,
         _lock: &WriteLock,
         account: &LegacyAccount,
         direction: Direction,
         zfo: &[u8],
         delivery_zfo: Option<&[u8]>,
+        big: bool,
     ) -> Result<bool> {
         let msg: Message = crate::zfo::parse_message(zfo)?;
         let e = &msg.envelope;
@@ -115,10 +132,58 @@ impl LegacyStore {
         if !path.exists() {
             self.create_db(&path)?;
         }
+        let received = direction == Direction::Received;
+        let in_files = big || e.vodz == Some(true);
+        let folder = files::dir(&path, dm_id);
+        // Which attachments went into files; one whose name cannot be a file
+        // name stays in the database.
+        let mut att_in_file = vec![false; msg.attachments.len()];
+        if in_files {
+            let written = (|| -> std::io::Result<()> {
+                for (i, a) in msg.attachments.iter().enumerate() {
+                    if let Some(p) = files::attachment_path(&path, dm_id, i as i64, &a.file_name) {
+                        files::write(&p, &a.content)?;
+                        att_in_file[i] = true;
+                    }
+                }
+                let kind = if received { TYPE_RECEIVED } else { TYPE_SENT };
+                files::write(&folder.join(files::message_name(kind, dm_id)), zfo)?;
+                if let Some(di) = delivery_zfo {
+                    files::write(&folder.join(files::delivery_name(dm_id)), di)?;
+                }
+                Ok(())
+            })();
+            if let Err(err) = written {
+                let _ = std::fs::remove_dir_all(&folder);
+                return Err(err.into());
+            }
+        }
+        let stored = self.insert_rows(&path, direction, &msg, dm_id, zfo, delivery_zfo, in_files, &att_in_file);
+        if stored.is_err() && in_files {
+            let _ = std::fs::remove_dir_all(&folder);
+        }
+        stored.map(|_| true)
+    }
+
+    /// The database part of [`insert_message_as`](Self::insert_message_as);
+    /// with `in_files` the raw data columns stay NULL like in the original.
+    #[allow(clippy::too_many_arguments)]
+    fn insert_rows(
+        &self,
+        path: &Path,
+        direction: Direction,
+        msg: &Message,
+        dm_id: i64,
+        zfo: &[u8],
+        delivery_zfo: Option<&[u8]>,
+        in_files: bool,
+        att_in_file: &[bool],
+    ) -> Result<()> {
+        let e = &msg.envelope;
         // Like the original: whether the signature holds, the message hash
         // and the signing certificate go with the complete message.
         let report = crate::verify::verify_zfo(zfo).ok();
-        let mut c = Self::open_rw(&path)?;
+        let mut c = Self::open_rw(path)?;
         let tx = c.transaction()?;
         let b64 = |d: &[u8]| base64::engine::general_purpose::STANDARD.encode(d);
         let time = |t: Option<DateTime<Utc>>| t.map(db_time);
@@ -176,7 +241,7 @@ impl LegacyStore {
             params![
                 dm_id,
                 if received { TYPE_RECEIVED } else { TYPE_SENT },
-                e.vodz.unwrap_or(false),
+                e.vodz.unwrap_or(false) || in_files,
                 e.atts_num.unwrap_or(msg.attachments.len() as i64),
                 !received,
                 db_time(Utc::now()),
@@ -197,24 +262,26 @@ impl LegacyStore {
                     a.file_name,
                     a.mime_type,
                     a.meta_type,
-                    b64(&a.content)
+                    (!att_in_file[i]).then(|| b64(&a.content)),
                 ],
             )?;
         }
-        // The original binds QByteArray::toBase64(), which SQLite stores as BLOB.
+        // The original binds QByteArray::toBase64(), which SQLite stores as
+        // BLOB; NULL when the data is in a file.
+        let raw = |d: &[u8]| (!in_files).then(|| b64(d).into_bytes());
         tx.execute(
             "INSERT OR REPLACE INTO raw_message_data (message_id, message_type, data)
              VALUES (?1, ?2, ?3)",
             params![
                 dm_id,
                 if received { TYPE_RECEIVED } else { TYPE_SENT },
-                b64(zfo).into_bytes()
+                raw(zfo)
             ],
         )?;
         if let Some(di) = delivery_zfo {
             tx.execute(
                 "INSERT OR REPLACE INTO raw_delivery_info_data (message_id, data) VALUES (?1, ?2)",
-                params![dm_id, b64(di).into_bytes()],
+                params![dm_id, raw(di)],
             )?;
             for (t, descr) in crate::zfo::delivery_events(di).unwrap_or_default() {
                 let t = parse_time(&t).map(db_time).unwrap_or(t);
@@ -225,7 +292,7 @@ impl LegacyStore {
             }
         }
         tx.commit()?;
-        Ok(true)
+        Ok(())
     }
 }
 
@@ -239,21 +306,27 @@ impl LegacyStore {
         let mut done = 0;
         for path in self.message_dbs(account)? {
             let mut c = Self::open_rw(&path)?;
-            let rows: Vec<(i64, Vec<u8>)> = {
+            let rows: Vec<(i64, Option<Vec<u8>>, i64)> = {
                 let mut st = c.prepare(
-                    "SELECT m.dmID, r.data FROM messages m
+                    "SELECT m.dmID, r.data, r.message_type FROM messages m
                      JOIN raw_message_data r ON r.message_id = m.dmID
                      WHERE m._origin IS NULL AND m.is_verified IS NULL",
                 )?;
-                let rows = st.query_map([], |r| Ok((r.get(0)?, r.get::<_, Vec<u8>>(1)?)))?;
+                let rows = st.query_map([], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get::<_, Option<i64>>(2)?.unwrap_or(TYPE_RECEIVED)))
+                })?;
                 rows.collect::<std::result::Result<_, _>>()?
             };
             if rows.is_empty() {
                 continue;
             }
             let tx = c.transaction()?;
-            for (dm_id, data) in rows {
-                let Ok(zfo) = base64::engine::general_purpose::STANDARD.decode(&data) else {
+            for (dm_id, data, kind) in rows {
+                let zfo = match data.filter(|d| !d.is_empty()) {
+                    Some(d) => base64::engine::general_purpose::STANDARD.decode(&d).ok(),
+                    None => std::fs::read(files::dir(&path, dm_id).join(files::message_name(kind, dm_id))).ok(),
+                };
+                let Some(zfo) = zfo else {
                     continue;
                 };
                 let report = crate::verify::verify_zfo(&zfo).ok();
@@ -274,7 +347,8 @@ impl LegacyStore {
     /// them. Tags, notes and deadlines stay, so a message downloaded again
     /// gets them back.
     pub fn delete_message(&self, _lock: &WriteLock, account: &LegacyAccount, dm_id: i64) -> Result<()> {
-        let mut c = Self::open_rw(&self.find_db(account, dm_id)?)?;
+        let db = self.find_db(account, dm_id)?;
+        let mut c = Self::open_rw(&db)?;
         let tx = c.transaction()?;
         let certs: Vec<i64> = {
             let mut st =
@@ -304,6 +378,11 @@ impl LegacyStore {
         }
         tx.execute("DELETE FROM messages WHERE dmID = ?1", [dm_id])?;
         tx.commit()?;
+        // Files of a high-volume message, as the original removes them.
+        let folder = files::dir(&db, dm_id);
+        if folder.is_dir() {
+            let _ = std::fs::remove_dir_all(folder);
+        }
         Ok(())
     }
 
@@ -344,7 +423,20 @@ impl LegacyStore {
         dm_id: i64,
         zfo: &[u8],
     ) -> Result<()> {
-        let c = Self::open_rw(&self.find_db(account, dm_id)?)?;
+        let db = self.find_db(account, dm_id)?;
+        let c = Self::open_rw(&db)?;
+        // A message kept in a file gets its new original in the file.
+        let in_file: Option<(bool, i64)> = c
+            .query_row(
+                "SELECT data IS NULL, ifnull(message_type, 1) FROM raw_message_data WHERE message_id = ?1",
+                [dm_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        if let Some((true, kind)) = in_file {
+            files::write(&files::dir(&db, dm_id).join(files::message_name(kind, dm_id)), zfo)?;
+            return Ok(());
+        }
         let n = c.execute(
             "UPDATE raw_message_data SET data = ?2 WHERE message_id = ?1",
             params![
@@ -472,5 +564,145 @@ mod tests {
             .insert_message(&l, &acc, Direction::Received, &zfo, di.as_deref())
             .unwrap());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    fn archive(name: &str, conf: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("datovka-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("dsgui.conf"), conf).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_high_volume_message_lives_in_files_like_in_the_original() {
+        let (Ok(zfo), Ok(di)) = (std::fs::read(SAMPLE), std::fs::read(DELIVERY)) else {
+            return; // reference data not present
+        };
+        let dir = archive("vodz", "[credentials]\nname=T\nusername=abc\n");
+        let store = LegacyStore::new(&dir);
+        let acc = store.account("abc").unwrap();
+        let lock::Acquire::Acquired(l) = lock::acquire(&dir, "test").unwrap() else {
+            panic!()
+        };
+        let original = crate::zfo::parse_message(&zfo).unwrap().attachments;
+        assert!(store
+            .insert_message_as(&l, &acc, Direction::Received, &zfo, Some(&di), true)
+            .unwrap());
+
+        // The layout of the original: database columns empty, files beside.
+        let db = dir.join("abc_2018___0.db");
+        let folder = dir.join("abc_2018___0").join("6452235");
+        let c = Connection::open(&db).unwrap();
+        let one = |sql: &str| -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(one("SELECT COUNT(*) FROM raw_message_data WHERE data IS NULL AND message_type = 1"), 1);
+        assert_eq!(one("SELECT COUNT(*) FROM raw_delivery_info_data WHERE data IS NULL"), 1);
+        assert_eq!(one("SELECT COUNT(*) FROM files WHERE dmEncodedContent IS NULL"), 2);
+        assert_eq!(one("SELECT dmVODZ FROM supplementary_message_data"), 1);
+        drop(c);
+        assert_eq!(std::fs::read(folder.join("DDZ_6452235.zfo")).unwrap(), zfo);
+        assert_eq!(std::fs::read(folder.join("DD_6452235.zfo")).unwrap(), di);
+        let att0 = folder.join(format!("ATT_6452235_0_{}", original[0].file_name));
+        assert_eq!(std::fs::read(&att0).unwrap(), original[0].content);
+        assert!(!std::fs::read_dir(&folder)
+            .unwrap()
+            .any(|e| e.unwrap().file_name().to_string_lossy().ends_with(".part")));
+
+        // Everything reads back through the files.
+        assert_eq!(store.zfo(&acc, 6452235).unwrap().unwrap(), zfo);
+        assert_eq!(store.delivery_zfo(&acc, 6452235).unwrap().unwrap(), di);
+        let atts = store.attachments(&acc, 6452235).unwrap();
+        assert_eq!(atts[0].size, Some(original[0].content.len() as i64));
+        for (a, o) in atts.iter().zip(&original) {
+            assert_eq!(store.attachment_content(&acc, 6452235, a.id).unwrap(), o.content);
+        }
+        // A missing attachment file is read from the signed message.
+        std::fs::remove_file(&att0).unwrap();
+        assert_eq!(
+            store.attachment_content(&acc, 6452235, atts[0].id).unwrap(),
+            original[0].content
+        );
+        // Older NG versions left such messages incomplete; no harm here.
+        assert_eq!(store.complete_signature_details(&l, &acc).unwrap(), 0);
+        // A renewed original goes into the file, the column stays empty.
+        store.replace_zfo(&l, &acc, 6452235, &zfo).unwrap();
+        assert_eq!(store.zfo(&acc, 6452235).unwrap().unwrap(), zfo);
+
+        store.delete_message(&l, &acc, 6452235).unwrap();
+        assert!(!folder.exists(), "the files go with the message");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn an_ordinary_message_stays_in_the_database() {
+        let Ok(zfo) = std::fs::read(SAMPLE) else {
+            return; // reference data not present
+        };
+        let dir = archive("plain", "[credentials]\nname=T\nusername=abc\n");
+        let store = LegacyStore::new(&dir);
+        let acc = store.account("abc").unwrap();
+        let lock::Acquire::Acquired(l) = lock::acquire(&dir, "test").unwrap() else {
+            panic!()
+        };
+        store
+            .insert_message(&l, &acc, Direction::Sent, &zfo, None)
+            .unwrap();
+        assert!(!dir.join("abc_2018___0").exists());
+        let c = Connection::open(dir.join("abc_2018___0.db")).unwrap();
+        let n: i64 = c
+            .query_row("SELECT COUNT(*) FROM raw_message_data WHERE data IS NOT NULL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+        drop(c);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn databases_in_another_folder_are_used_and_backed_up() {
+        let Ok(zfo) = std::fs::read(SAMPLE) else {
+            return; // reference data not present
+        };
+        let elsewhere = std::env::temp_dir().join(format!("datovka-elsewhere-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&elsewhere);
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        let conf = |d: &str| format!("[credentials]\nname=T\nusername=abc\ndatabase_dir={d}\n");
+        let dir = archive("dbdir", &conf(&elsewhere.to_string_lossy()));
+        let store = LegacyStore::new(&dir);
+        let acc = store.account("abc").unwrap();
+        assert_eq!(store.db_dir(&acc), elsewhere);
+        let lock::Acquire::Acquired(l) = lock::acquire(&dir, "test").unwrap() else {
+            panic!()
+        };
+        store
+            .insert_message_as(&l, &acc, Direction::Received, &zfo, None, true)
+            .unwrap();
+        assert!(elsewhere.join("abc_2018___0.db").exists());
+        assert!(elsewhere.join("abc_2018___0/6452235/DDZ_6452235.zfo").exists());
+        assert!(!dir.join("abc_2018___0.db").exists());
+        assert_eq!(store.messages(&acc).unwrap().len(), 1);
+        assert_eq!(store.zfo(&acc, 6452235).unwrap().unwrap(), zfo);
+
+        // The backup carries them beside the other files.
+        let out = std::env::temp_dir().join(format!("datovka-dbdir-{}.zip", std::process::id()));
+        super::super::backup::zip_dir(&dir, &out).unwrap();
+        let mut z = zip::ZipArchive::new(std::fs::File::open(&out).unwrap()).unwrap();
+        assert!(z.by_name("abc_2018___0.db").is_ok());
+        assert!(z.by_name("abc_2018___0/6452235/DDZ_6452235.zfo").is_ok());
+        assert!(z.by_name("dsgui.conf").is_ok());
+        drop(z);
+        std::fs::remove_file(out).unwrap();
+
+        // A folder of another computer, missing here: the archive folder.
+        std::fs::write(dir.join("dsgui.conf"), conf("/nikde/datovka")).unwrap();
+        let acc = store.account("abc").unwrap();
+        assert_eq!(store.db_dir(&acc), dir);
+        // A relative folder counts from the archive.
+        std::fs::create_dir_all(dir.join("databaze")).unwrap();
+        std::fs::write(dir.join("dsgui.conf"), conf("databaze")).unwrap();
+        assert_eq!(store.db_dir(&store.account("abc").unwrap()), dir.join("databaze"));
+
+        drop(l);
+        std::fs::remove_dir_all(dir).unwrap();
+        std::fs::remove_dir_all(elsewhere).unwrap();
     }
 }

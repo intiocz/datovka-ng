@@ -73,19 +73,20 @@ pub async fn redownload(
         Direction::Received => client.download_received(&id).await,
         Direction::Sent => client.download_sent(&id).await,
     };
-    let zfo = match zfo {
-        Ok(z) => z,
+    let (zfo, big) = match zfo {
+        Ok(z) => (z, false),
         Err(first) => match direction {
             Direction::Received => client.download_big_received(&id).await,
             Direction::Sent => client.download_big_sent(&id).await,
         }
+        .map(|z| (z, true))
         .map_err(|_| first)?,
     };
     let di = client.download_delivery_info(&id).await.ok();
     if store.contains(account, dm_id)? {
         store.delete_message(lock, account, dm_id)?;
     }
-    store.insert_message(lock, account, direction, &zfo, di.as_deref())?;
+    store.insert_message_as(lock, account, direction, &zfo, di.as_deref(), big)?;
     Ok(())
 }
 
@@ -156,12 +157,14 @@ async fn sync_directions(
                 Direction::Sent => client.download_sent(&env.dm_id).await,
             };
             // High-volume messages (VoDZ) are downloaded through their own service.
+            let mut big = env.vodz == Some(true);
             let zfo = match zfo {
                 Ok(z) => Ok(z),
                 Err(first) => match direction {
                     Direction::Received => client.download_big_received(&env.dm_id).await,
                     Direction::Sent => client.download_big_sent(&env.dm_id).await,
                 }
+                .inspect(|_| big = true)
                 .map_err(|_| first),
             };
             let zfo = match zfo {
@@ -175,7 +178,7 @@ async fn sync_directions(
                 }
             };
             let di = client.download_delivery_info(&env.dm_id).await.ok();
-            match store.insert_message(lock, account, direction, &zfo, di.as_deref()) {
+            match store.insert_message_as(lock, account, direction, &zfo, di.as_deref(), big) {
                 Ok(true) => {
                     if let Some(flag) = env.spec_mess_flag {
                         let _ = store.set_spec_mess_flag(lock, account, dm_id, flag);

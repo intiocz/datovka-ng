@@ -45,6 +45,22 @@ Zápis (`core/src/legacy/write.rs`) odpovídá `MessageDb::insertMessageEnvelope
 a souvisejícím funkcím původní aplikace. Nová roční databáze se vytvoří se
 schématem převzatým ze stávající databáze.
 
+Velkoobjemové zprávy (VoDZ) ukládá původní aplikace od verze 4.23 mimo
+databázi a Datovka NG stejně: ve složce vedle roční databáze (její cesta bez
+`.db`), podsložka `{dmID}/` s `DDZ_{dmID}.zfo` (přijatá) nebo
+`ODZ_{dmID}.zfo` (odeslaná), doručenkou `DD_{dmID}.zfo` a přílohami
+`ATT_{dmID}_{attNum}_{název}`. Sloupce `raw_message_data.data`,
+`raw_delivery_info_data.data` a `files.dmEncodedContent` jsou pak NULL.
+Soubory se píšou jako `….part` a přejmenují. Chybí-li soubor přílohy, čte se
+příloha z podepsané zprávy, jako v originálu.
+
+`database_dir` v sekci schránky v `dsgui.conf` říká, že původní aplikace
+drží databáze zpráv té schránky v jiné složce (`messages.shelf.db`,
+`tag.db` a ostatní zůstávají v archivu). Datovka NG ji čte i zapisuje tam.
+Relativní cesta se počítá od archivu. Složka, která na tomto počítači
+neexistuje (archiv sdílený z jiného počítače), znamená složku archivu.
+Záloha ZIP přibalí databáze z takové složky do kořene.
+
 ### Synchronizace přes iCloud
 
 SQLite není stavěné na souběžný zápis ze dvou zařízení přes synchronizovanou

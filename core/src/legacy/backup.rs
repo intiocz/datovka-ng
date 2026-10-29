@@ -9,17 +9,60 @@ use crate::error::{Error, Result};
 
 fn skipped(name: &str) -> bool {
     // The write lock belongs to one device; temporary files are half-written.
-    name.starts_with(".datovka-zamek") || name.ends_with(".tmp") || name == ".DS_Store"
+    name.starts_with(".datovka-zamek")
+        || name.ends_with(".tmp")
+        || name.ends_with(".part")
+        || name == ".DS_Store"
 }
 
+type Zip = zip::ZipWriter<File>;
+
 /// Packs the data folder into `out` and returns the number of files.
+/// Message databases an account keeps in another folder (`database_dir`)
+/// go in too, beside the others, so a restored archive has everything.
 pub fn zip_dir(dir: &Path, out: &Path) -> Result<u64> {
     let mut w = zip::ZipWriter::new(File::create(out)?);
-    let opts = zip::write::SimpleFileOptions::default()
+    let mut n = add_tree(&mut w, dir, "")?;
+    let store = super::LegacyStore::new(dir);
+    let here = std::fs::canonicalize(dir)?;
+    for acc in super::conf::load(dir)? {
+        // Already in, when it is the archive folder or a folder inside it.
+        if std::fs::canonicalize(store.db_dir(&acc)).is_ok_and(|d| d.starts_with(&here)) {
+            continue;
+        }
+        for db in store.message_dbs(&acc)? {
+            let name = db.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            n += add_file(&mut w, &db, &name)?;
+            // Files of high-volume messages beside the database.
+            let folder = db.with_extension("");
+            if folder.is_dir() {
+                let stem = folder.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                n += add_tree(&mut w, &folder, &format!("{stem}/"))?;
+            }
+        }
+    }
+    w.finish().map_err(zip_err)?;
+    Ok(n)
+}
+
+fn zip_options() -> zip::write::SimpleFileOptions {
+    zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
-        .large_file(true);
+        .large_file(true)
+}
+
+fn add_file(w: &mut Zip, path: &Path, inner: &str) -> Result<u64> {
+    w.start_file(inner, zip_options()).map_err(zip_err)?;
+    let mut data = Vec::new();
+    File::open(path)?.read_to_end(&mut data)?;
+    w.write_all(&data)?;
+    Ok(1)
+}
+
+/// Adds a folder with everything below it under `prefix`.
+fn add_tree(w: &mut Zip, dir: &Path, prefix: &str) -> Result<u64> {
     let mut n = 0;
-    let mut stack = vec![(dir.to_path_buf(), String::new())];
+    let mut stack = vec![(dir.to_path_buf(), prefix.to_string())];
     while let Some((path, prefix)) = stack.pop() {
         for entry in std::fs::read_dir(&path)? {
             let entry = entry?;
@@ -32,14 +75,9 @@ pub fn zip_dir(dir: &Path, out: &Path) -> Result<u64> {
                 stack.push((entry.path(), format!("{inner}/")));
                 continue;
             }
-            w.start_file(inner, opts).map_err(zip_err)?;
-            let mut data = Vec::new();
-            File::open(entry.path())?.read_to_end(&mut data)?;
-            w.write_all(&data)?;
-            n += 1;
+            n += add_file(w, &entry.path(), &inner)?;
         }
     }
-    w.finish().map_err(zip_err)?;
     Ok(n)
 }
 
