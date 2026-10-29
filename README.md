@@ -33,8 +33,10 @@ a měsících.
 - **Všechny schránky najednou.** Přijaté, odeslané, lhůty a koncepty pro
   jednu schránku nebo pro všechny. Počty se řídí vybranou schránkou.
 - **Archiv původní Datovky bez převodu.** Čte a zapisuje její soubory
-  (`dsgui.conf`, databáze zpráv, štítky, časová razítka), takže se dá kdykoli
-  vrátit k původní aplikaci a ta pokračuje nad stejnými daty.
+  (`dsgui.conf`, databáze zpráv, štítky, poznámky, stav vyřízení) ve stejném
+  tvaru jako ona. Kdykoli se dá vrátit k původní aplikaci a ta uvidí všechno,
+  i zprávy stažené a odeslané v Datovce NG
+  ([návrat k původní Datovce](docs/prirucka.md#návrat-k-původní-datovce)).
 - **Jeden archiv na Macu, iPhonu i dalších počítačích.** Archiv může ležet na
   iCloud Drive nebo ve sdílené složce. Číst jde odkudkoli najednou, zápis si
   bere krátký zámek, aby se soubory nerozbily.

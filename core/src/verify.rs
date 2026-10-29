@@ -890,6 +890,13 @@ fn decode_b64(text: &str) -> Option<Vec<u8>> {
 ///
 /// Returns an error only when the file cannot be parsed as signed CMS at all;
 /// failed checks are reported in the result.
+/// DER of the certificate that signed a ZFO; the original app keeps it
+/// with each message (`certificate_data`).
+pub fn signer_certificate(zfo: &[u8]) -> Option<Vec<u8>> {
+    let sd = parse_signed_data(zfo).ok()?;
+    find_signer_cert(&sd).map(|i| sd.certs[i].raw.clone())
+}
+
 pub fn verify_zfo(zfo: &[u8]) -> Result<SignatureReport> {
     if zfo.trim_ascii_start().starts_with(b"<") {
         return Err(err("soubor není podepsán (obsahuje jen XML)"));

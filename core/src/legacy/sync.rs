@@ -105,6 +105,9 @@ pub async fn sync_with(
         username: account.username.clone(),
         ..Default::default()
     };
+    // Messages an older Datovka NG stored without the details the original
+    // app needs; quick when there are none.
+    let _ = store.complete_signature_details(lock, account);
     for direction in [Direction::Received, Direction::Sent] {
         let _ = lock.refresh();
         let list = match direction {

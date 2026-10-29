@@ -18,6 +18,48 @@ pub(crate) fn db_time(t: DateTime<Utc>) -> String {
     t.format("%Y-%m-%d %H:%M:%S%.3f+00:00").to_string()
 }
 
+/// The message hash and the signing certificate, stored as the original
+/// app does (`hashes`, `certificate_data`, `message_certificate_data`).
+fn store_signature_details(
+    c: &Connection,
+    dm_id: i64,
+    zfo: &[u8],
+    report: Option<&crate::verify::SignatureReport>,
+) -> Result<()> {
+    if let Some(h) = report.and_then(|r| r.dm_hash.as_ref()) {
+        c.execute("DELETE FROM hashes WHERE message_id = ?1", [dm_id])?;
+        c.execute(
+            "INSERT INTO hashes (message_id, value, _algorithm) VALUES (?1, ?2, ?3)",
+            params![dm_id, h.value, h.algorithm],
+        )?;
+    }
+    if let Some(der) = crate::verify::signer_certificate(zfo) {
+        // Base64 bound as bytes, as the original binds QByteArray.
+        let cert = base64::engine::general_purpose::STANDARD.encode(der).into_bytes();
+        let found: Option<i64> = c
+            .query_row("SELECT id FROM certificate_data WHERE der_data = ?1", [&cert], |r| r.get(0))
+            .ok();
+        let id = match found {
+            Some(id) => id,
+            None => {
+                let next: i64 =
+                    c.query_row("SELECT ifnull(max(id), 0) + 1 FROM certificate_data", [], |r| r.get(0))?;
+                c.execute(
+                    "INSERT INTO certificate_data (id, der_data) VALUES (?1, ?2)",
+                    params![next, cert],
+                )?;
+                next
+            }
+        };
+        c.execute("DELETE FROM message_certificate_data WHERE message_id = ?1", [dm_id])?;
+        c.execute(
+            "INSERT INTO message_certificate_data (message_id, certificate_id) VALUES (?1, ?2)",
+            params![dm_id, id],
+        )?;
+    }
+    Ok(())
+}
+
 const TYPE_RECEIVED: i64 = 1;
 const TYPE_SENT: i64 = 2;
 const PROCESS_STATE_UNSETTLED: i64 = 0;
@@ -73,6 +115,9 @@ impl LegacyStore {
         if !path.exists() {
             self.create_db(&path)?;
         }
+        // Like the original: whether the signature holds, the message hash
+        // and the signing certificate go with the complete message.
+        let report = crate::verify::verify_zfo(zfo).ok();
         let mut c = Self::open_rw(&path)?;
         let tx = c.transaction()?;
         let b64 = |d: &[u8]| base64::engine::general_purpose::STANDARD.encode(d);
@@ -87,9 +132,9 @@ impl LegacyStore {
                 dmLegalTitleLaw, dmLegalTitleYear, dmLegalTitleSect, dmLegalTitlePar,
                 dmLegalTitlePoint, dmPersonalDelivery, dmAllowSubstDelivery, dmQTimestamp,
                 dmDeliveryTime, dmAcceptanceTime, dmMessageStatus, dmAttachmentSize, _dmType)
-             VALUES (?1, NULL, NULL, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, NULL, ?9, NULL, NULL,
-                ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24,
-                ?25, ?26, ?27, ?28)",
+             VALUES (?1, ?29, 'tReturnedMessage', ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, NULL, ?9,
+                NULL, NULL, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22,
+                ?23, ?24, ?25, ?26, ?27, ?28)",
             params![
                 dm_id,
                 e.sender_box_id,
@@ -119,8 +164,10 @@ impl LegacyStore {
                 e.message_status,
                 e.attachment_size_kb.map(|v| v as i64),
                 e.dm_type,
+                report.as_ref().map(|r| r.signature_valid),
             ],
         )?;
+        store_signature_details(&tx, dm_id, zfo, report.as_ref())?;
         let received = direction == Direction::Received;
         tx.execute(
             "INSERT INTO supplementary_message_data (message_id, message_type, dmVODZ, attsNum,
@@ -183,6 +230,45 @@ impl LegacyStore {
 }
 
 impl LegacyStore {
+    /// Completes messages that earlier versions of Datovka NG stored without
+    /// what the original app keeps with a complete message: the signature
+    /// result, the download marker, the hash and the signing certificate.
+    /// Without them the original shows such a message as not downloaded in
+    /// its signature details. Returns the number of messages completed.
+    pub fn complete_signature_details(&self, _lock: &WriteLock, account: &LegacyAccount) -> Result<usize> {
+        let mut done = 0;
+        for path in self.message_dbs(account)? {
+            let mut c = Self::open_rw(&path)?;
+            let rows: Vec<(i64, Vec<u8>)> = {
+                let mut st = c.prepare(
+                    "SELECT m.dmID, r.data FROM messages m
+                     JOIN raw_message_data r ON r.message_id = m.dmID
+                     WHERE m._origin IS NULL AND m.is_verified IS NULL",
+                )?;
+                let rows = st.query_map([], |r| Ok((r.get(0)?, r.get::<_, Vec<u8>>(1)?)))?;
+                rows.collect::<std::result::Result<_, _>>()?
+            };
+            if rows.is_empty() {
+                continue;
+            }
+            let tx = c.transaction()?;
+            for (dm_id, data) in rows {
+                let Ok(zfo) = base64::engine::general_purpose::STANDARD.decode(&data) else {
+                    continue;
+                };
+                let report = crate::verify::verify_zfo(&zfo).ok();
+                tx.execute(
+                    "UPDATE messages SET is_verified = ?2, _origin = 'tReturnedMessage' WHERE dmID = ?1",
+                    params![dm_id, report.as_ref().map(|r| r.signature_valid)],
+                )?;
+                store_signature_details(&tx, dm_id, &zfo, report.as_ref())?;
+                done += 1;
+            }
+            tx.commit()?;
+        }
+        Ok(done)
+    }
+
     /// Removes a message and everything stored with it from this computer,
     /// like the original app: certificates only when no other message uses
     /// them. Tags, notes and deadlines stay, so a message downloaded again
@@ -329,6 +415,34 @@ mod tests {
         );
         assert!(dir.join("abc_2018___0.db").exists());
 
+        // Stored like the original stores a complete message.
+        let c = Connection::open(dir.join("abc_2018___0.db")).unwrap();
+        let count = |sql: &str| -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() };
+        let complete = |c: &Connection| -> (Option<bool>, Option<String>) {
+            c.query_row("SELECT is_verified, _origin FROM messages", [], |r| Ok((r.get(0)?, r.get(1)?)))
+                .unwrap()
+        };
+        let (verified, origin) = complete(&c);
+        assert!(verified.is_some());
+        assert_eq!(origin.as_deref(), Some("tReturnedMessage"));
+        assert_eq!(count("SELECT COUNT(*) FROM hashes WHERE value <> '' AND _algorithm <> ''"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM message_certificate_data"), 1);
+        assert_eq!(count("SELECT typeof(der_data) = 'blob' FROM certificate_data"), 1);
+
+        // A message stored by an older version gets completed once.
+        c.execute_batch(
+            "UPDATE messages SET is_verified = NULL, _origin = NULL;
+             DELETE FROM hashes; DELETE FROM message_certificate_data;",
+        )
+        .unwrap();
+        assert_eq!(store.complete_signature_details(&l, &acc).unwrap(), 1);
+        assert_eq!(complete(&c), (verified, origin));
+        assert_eq!(count("SELECT COUNT(*) FROM hashes"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM message_certificate_data"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM certificate_data"), 1, "the certificate is reused");
+        assert_eq!(store.complete_signature_details(&l, &acc).unwrap(), 0);
+        drop(c);
+
         assert_eq!(msgs[0].process_state, 0, "a new message is unsettled");
         store.set_process_state(&l, &acc, 6452235, 2).unwrap();
         assert_eq!(store.messages(&acc).unwrap()[0].process_state, 2);
@@ -338,7 +452,16 @@ mod tests {
         assert!(store.messages(&acc).unwrap().is_empty());
         assert!(!store.contains(&acc, 6452235).unwrap());
         let c = Connection::open(dir.join("abc_2018___0.db")).unwrap();
-        for table in ["files", "events", "raw_message_data", "raw_delivery_info_data", "process_state"] {
+        for table in [
+            "files",
+            "events",
+            "raw_message_data",
+            "raw_delivery_info_data",
+            "process_state",
+            "hashes",
+            "message_certificate_data",
+            "certificate_data",
+        ] {
             let n: i64 = c
                 .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
                 .unwrap();

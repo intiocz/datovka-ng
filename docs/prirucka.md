@@ -45,6 +45,25 @@ minutách převezme sám.
 Na úzkém okně a na telefonu se složky schovají do menu a detail se otevře přes
 celou obrazovku.
 
+## Návrat k původní Datovce
+
+Datovka NG nic nepřevádí, pracuje přímo nad archivem původní Datovky. Když
+vám nebude vyhovovat, zavřete ji a otevřete původní Datovku od CZ.NIC: uvidí
+všechny zprávy, i ty stažené a odeslané v Datovce NG, včetně příloh,
+podepsaných originálů, doručenek, štítků, poznámek a stavu vyřízení.
+
+- Obě aplikace nespouštějte najednou nad stejným archivem. Původní Datovka
+  nezná zámek zápisu Datovky NG.
+- Lhůty a koncepty z Datovky NG původní Datovka nezná. Zůstanou v souboru
+  `datovka-doplnky.db` a po návratu do Datovky NG je najdete zase.
+- Heslo, které jste zadali nebo změnili v Datovce NG, je jen v Klíčence
+  (Správci pověření, klíčence Linuxu). Původní Datovka se na něj jednou zeptá.
+- Na Macu, kde jste v Nastavení zkopírovali archiv do Dokumentů
+  (`Archiv.datovka`), čte původní Datovka dál starou složku `~/.dsgui`.
+  Zprávy stažené po kopírování jsou jen v `Archiv.datovka`. Obsah balíčku
+  (pravým tlačítkem → Zobrazit obsah balíčku) zkopírujte zpět do `~/.dsgui`,
+  nebo spusťte původní Datovku s `--conf-dir` a cestou k balíčku.
+
 ## Stahování zpráv
 
 Tlačítko obnovit vlevo dole stáhne nové přijaté a odeslané zprávy ze všech
