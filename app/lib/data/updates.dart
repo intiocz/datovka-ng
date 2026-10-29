@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -124,7 +125,7 @@ String nendeLink(String place) {
       : Platform.isAndroid
       ? 'android'
       : Platform.isLinux
-      ? 'linux'
+      ? (Abi.current() == Abi.linuxArm64 ? 'linux-arm64' : 'linux')
       : 'jine';
   return Uri.https('nende.cz', '/', {
     'utm_source': 'datovka-ng',
@@ -154,6 +155,7 @@ Future<void> openLink(String url) async {
 /// Soubory přiložené k vydání na GitHubu.
 const macReleaseAsset = 'DatovkaNG-macos.zip';
 const linuxReleaseAsset = 'DatovkaNG-linux-amd64.deb';
+const linuxArmReleaseAsset = 'DatovkaNG-linux-arm64.deb';
 const windowsReleaseAsset = 'DatovkaNG-windows-amd64.zip';
 
 /// Název balíčku z vydání pro tento systém. Napřed přesný název, pak záloha.
@@ -168,8 +170,12 @@ String? releaseAssetName(Iterable<String> names, {required String platform}) {
   if (platform == 'linux') {
     if (list.contains(linuxReleaseAsset)) return linuxReleaseAsset;
     for (final n in list) {
-      if (n.endsWith('.deb')) return n;
+      if (n.endsWith('.deb') && !n.contains('arm64')) return n;
     }
+  }
+  // An ARM computer never gets the Intel package.
+  if (platform == 'linux-arm64') {
+    if (list.contains(linuxArmReleaseAsset)) return linuxArmReleaseAsset;
   }
   if (platform == 'windows') {
     if (list.contains(windowsReleaseAsset)) return windowsReleaseAsset;
@@ -188,7 +194,7 @@ String? _wantedAsset(List assets) {
   final platform = Platform.isMacOS
       ? 'macos'
       : Platform.isLinux
-      ? 'linux'
+      ? (Abi.current() == Abi.linuxArm64 ? 'linux-arm64' : 'linux')
       : Platform.isWindows
       ? 'windows'
       : '';

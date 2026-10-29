@@ -1,10 +1,11 @@
 #!/bin/sh
-# Zabalí linuxové sestavení Flutteru do DatovkaNG-linux-amd64.deb.
-# Použití: scripts/package-deb.sh <složka bundle> <verze> <výstupní.deb>
+# Zabalí linuxové sestavení Flutteru do DatovkaNG-linux-<arch>.deb.
+# Použití: scripts/package-deb.sh <složka bundle> <verze> <výstupní.deb> [amd64|arm64]
 set -e
 bundle=$1
 version=$2
 out=$3
+arch=${4:-amd64}
 if [ -z "$bundle" ] || [ -z "$version" ] || [ -z "$out" ]; then
   echo "použití: $0 <bundle> <verze> <výstup.deb>" >&2
   exit 1
@@ -36,7 +37,7 @@ Package: datovka-ng
 Version: ${version}
 Section: net
 Priority: optional
-Architecture: amd64
+Architecture: ${arch}
 Maintainer: Datovka NG <https://github.com/intiocz/datovka-ng>
 Depends: libgtk-3-0 | libgtk-3-0t64, liblzma5
 Description: Klient datových schránek

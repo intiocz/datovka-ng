@@ -19,6 +19,13 @@ void main() {
       'DatovkaNG-windows-amd64.zip',
     );
     expect(releaseAssetName(names, platform: 'ios'), isNull);
+    final both = [...names, 'DatovkaNG-linux-arm64.deb'];
+    expect(
+      releaseAssetName(both, platform: 'linux-arm64'),
+      'DatovkaNG-linux-arm64.deb',
+    );
+    expect(releaseAssetName(both, platform: 'linux'), 'DatovkaNG-linux-amd64.deb');
+    expect(releaseAssetName(names, platform: 'linux-arm64'), isNull);
   });
 
   test('a newer tag is newer, the same tag is not', () {
