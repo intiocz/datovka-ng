@@ -399,15 +399,25 @@ Remove-Item -LiteralPath ${_ps(zip.path)} -Force -ErrorAction SilentlyContinue
 Start-Process -FilePath ${_ps(exe)}
 Remove-Item -LiteralPath ${_ps(script.path)} -Force
 ''');
-  await Process.start('powershell', [
-    '-NoProfile',
-    '-WindowStyle',
-    'Hidden',
-    '-File',
-    script.path,
-  ], mode: ProcessStartMode.detached);
+  await Process.start(
+    'powershell',
+    windowsInstallerArgs(script.path),
+    mode: ProcessStartMode.detached,
+  );
   exit(0);
 }
+
+/// PowerShell arguments for the install script. Windows refuses to run
+/// script files by default, so the policy is lifted for this one run.
+List<String> windowsInstallerArgs(String script) => [
+  '-NoProfile',
+  '-ExecutionPolicy',
+  'Bypass',
+  '-WindowStyle',
+  'Hidden',
+  '-File',
+  script,
+];
 
 String _ps(String s) => "'${s.replaceAll("'", "''")}'";
 

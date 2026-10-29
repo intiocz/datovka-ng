@@ -50,4 +50,14 @@ Ručně ji stáhnete z tabulky níže.
     expect(releaseNews('Opravy chyb.'), ['Opravy chyb.']);
     expect(releaseNews(''), isEmpty);
   });
+
+  test('the Windows install script runs despite the default script policy', () {
+    final args = windowsInstallerArgs(r'C:\Temp\datovka-ng-instaluj.ps1');
+    final i = args.indexOf('-ExecutionPolicy');
+    expect(i, isNot(-1));
+    expect(args[i + 1], 'Bypass');
+    expect(args.indexOf('-File'), lessThan(args.length - 1));
+    expect(args.last, r'C:\Temp\datovka-ng-instaluj.ps1');
+    expect(i, lessThan(args.indexOf('-File')));
+  });
 }
