@@ -34,4 +34,8 @@ class FlutterWindow : public Win32Window {
 void SaveWindowPlacement(HWND hwnd);
 void RestoreWindowPlacement(HWND hwnd);
 
+// Shrinks and moves the window so it fits the work area of its monitor: a
+// small screen, or a placement saved on a larger monitor.
+void FitWindowToScreen(HWND hwnd);
+
 #endif  // RUNNER_FLUTTER_WINDOW_H_

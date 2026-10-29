@@ -1,5 +1,6 @@
 #include "flutter_window.h"
 
+#include <algorithm>
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -34,6 +35,29 @@ void RestoreWindowPlacement(HWND hwnd) {
   wp.showCmd = SW_HIDE;
   wp.flags = 0;
   ::SetWindowPlacement(hwnd, &wp);
+}
+
+void FitWindowToScreen(HWND hwnd) {
+  RECT r;
+  if (!::GetWindowRect(hwnd, &r)) {
+    return;
+  }
+  MONITORINFO mi{sizeof(mi)};
+  if (!::GetMonitorInfoW(::MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST),
+                         &mi)) {
+    return;
+  }
+  const RECT& work = mi.rcWork;
+  LONG width = (std::min)(r.right - r.left, work.right - work.left);
+  LONG height = (std::min)(r.bottom - r.top, work.bottom - work.top);
+  // Keep the whole window on the screen, title bar included.
+  LONG left = (std::max)(work.left, (std::min)(r.left, work.right - width));
+  LONG top = (std::max)(work.top, (std::min)(r.top, work.bottom - height));
+  if (left != r.left || top != r.top || width != r.right - r.left ||
+      height != r.bottom - r.top) {
+    ::SetWindowPos(hwnd, nullptr, left, top, width, height,
+                   SWP_NOZORDER | SWP_NOACTIVATE);
+  }
 }
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)

@@ -31,6 +31,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     return EXIT_FAILURE;
   }
   RestoreWindowPlacement(window.GetHandle());
+  FitWindowToScreen(window.GetHandle());
   window.SetQuitOnClose(true);
 
   ::MSG msg;
