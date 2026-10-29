@@ -42,7 +42,7 @@ jobs:
           path: dist/DatovkaNG-linux-amd64.deb
 
   macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
