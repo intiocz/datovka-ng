@@ -5,6 +5,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../data/file_check.dart';
 import '../data/models.dart';
 import '../theme.dart';
 import 'app_scope.dart';
@@ -119,6 +120,10 @@ class _ComposeState extends State<_Compose> {
   DataBox? _from;
   Timer? _debounce;
 
+  /// The files checked against the ISDS rules; null until checked.
+  FileCheck? _fileCheck;
+  var _fileCheckRun = 0;
+
   /// Recipients that cannot receive messages (`CheckDataBox`), with why.
   final _inaccessible = <String, String>{};
   final _checks = <String, Future<void>>{};
@@ -139,7 +144,31 @@ class _ComposeState extends State<_Compose> {
           boxes.where((b) => b.id == s.boxId).firstOrNull ??
           boxes.firstOrNull;
       _checkRecipients();
+      _checkFiles();
     }
+  }
+
+  /// Checks the files against the ISDS rules in the background; the newest
+  /// run wins when files change quickly.
+  Future<FileCheck?> _checkFiles() async {
+    final run = ++_fileCheckRun;
+    final s = AppScope.of(context);
+    FileCheck? result;
+    try {
+      result = await s.checkFiles([
+        for (final f in _files) f.path,
+      ], _recipients.length);
+    } on Object {
+      // The check only informs; sending reports any real problem.
+      result = null;
+    }
+    if (mounted && run == _fileCheckRun) setState(() => _fileCheck = result);
+    return result;
+  }
+
+  void _changeFiles(void Function() change) {
+    setState(change);
+    _checkFiles();
   }
 
   /// Asks ISDS in the background whether the recipients are accessible and
@@ -235,6 +264,8 @@ class _ComposeState extends State<_Compose> {
       AppScope.of(context).directoryResults = null;
     });
     _checkRecipients();
+    // High-volume messages go to each recipient separately.
+    if (_files.isNotEmpty) _checkFiles();
   }
 
   void _onLookup(String q) {
@@ -293,6 +324,17 @@ class _ComposeState extends State<_Compose> {
     ];
     if (problems.isNotEmpty) {
       setState(() => _error = 'Nelze odeslat: ${problems.join(', ')}.');
+      return;
+    }
+    // Files may have changed on disk since they were added.
+    final check = await _checkFiles();
+    if (!mounted) return;
+    if (check != null && check.blocks) {
+      setState(
+        () => _error =
+            'Nelze odeslat, ISDS by zprávu odmítl. Opravte dokumenty podle '
+            'upozornění pod seznamem.',
+      );
       return;
     }
     setState(() {
@@ -646,17 +688,41 @@ class _ComposeState extends State<_Compose> {
                 : null,
             trailing: IconButton(
               tooltip: 'Odebrat',
-              onPressed: () => setState(() => _files.removeAt(i)),
+              onPressed: () => _changeFiles(() => _files.removeAt(i)),
               icon: const Icon(Icons.close, size: 18),
             ),
           ),
+        if (_fileCheck case final check?)
+          for (final p in check.problems)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    p.error ? Icons.error_outline : Icons.info_outline,
+                    size: 18,
+                    color: p.error ? t.danger : t.warn,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      p.text,
+                      style: text.bodySmall?.copyWith(
+                        color: p.error ? t.danger : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         const SizedBox(height: 8),
         FileDropZone(
           active: _dragging,
           compact: _files.isNotEmpty,
           onPick: () async {
             final picked = await openFiles();
-            if (picked.isNotEmpty) setState(() => _files.addAll(picked));
+            if (picked.isNotEmpty) _changeFiles(() => _files.addAll(picked));
           },
         ),
       ],
@@ -702,7 +768,7 @@ class _ComposeState extends State<_Compose> {
       body: DropTarget(
         onDragEntered: (_) => setState(() => _dragging = true),
         onDragExited: (_) => setState(() => _dragging = false),
-        onDragDone: (d) => setState(() {
+        onDragDone: (d) => _changeFiles(() {
           _dragging = false;
           _files.addAll(d.files.where((f) => f.path.isNotEmpty));
         }),

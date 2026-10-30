@@ -2,6 +2,7 @@
 
 mod multipart;
 pub mod ops;
+pub mod rules;
 pub mod vodz;
 #[cfg(test)]
 mod schema_check;
@@ -179,39 +180,10 @@ fn yes() -> bool {
     true
 }
 
-/// Guesses a MIME type from a file name; ISDS accepts only listed formats.
+/// The MIME type to send for a file name, from the list of formats ISDS
+/// accepts ([`rules::mime_for`]).
 pub fn mime_for(name: &str) -> &'static str {
-    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
-    match ext.as_str() {
-        "pdf" => "application/pdf",
-        "xml" => "application/xml",
-        "fo" | "zfo" => "application/vnd.software602.filler.form-xml-zip",
-        "doc" => "application/msword",
-        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "xls" => "application/vnd.ms-excel",
-        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "odt" => "application/vnd.oasis.opendocument.text",
-        "ods" => "application/vnd.oasis.opendocument.spreadsheet",
-        "odp" => "application/vnd.oasis.opendocument.presentation",
-        "ppt" => "application/vnd.ms-powerpoint",
-        "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "txt" => "text/plain",
-        "rtf" => "application/rtf",
-        "htm" | "html" => "text/html",
-        "jpg" | "jpeg" | "jfif" => "image/jpeg",
-        "png" => "image/png",
-        "gif" => "image/gif",
-        "tif" | "tiff" => "image/tiff",
-        "isdoc" => "text/isdoc",
-        "isdocx" => "text/isdocx",
-        "zip" => "application/zip",
-        "p7s" | "p7m" => "application/pkcs7-signature",
-        "tsr" => "application/timestamp-reply",
-        "edi" => "application/edi-edifact",
-        "dwg" => "image/vnd.dwg",
-        "shp" | "dbf" | "shx" | "prj" | "qix" | "sbn" | "sbx" => "application/octet-stream",
-        _ => "application/octet-stream",
-    }
+    rules::mime_for(name)
 }
 
 fn opt_el(name: &str, v: &Option<String>) -> String {

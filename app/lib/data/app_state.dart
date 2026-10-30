@@ -9,6 +9,7 @@ import 'archive_location.dart';
 import 'auto_backup.dart';
 import 'core_bridge.dart';
 import 'data_folder.dart';
+import 'file_check.dart';
 import 'mailbox.dart';
 import 'models.dart';
 import 'session_keeper.dart';
@@ -1614,6 +1615,20 @@ class AppState extends ChangeNotifier {
 
   /// Boxes that can send right now (stored password).
   List<DataBox> get sendingBoxes => boxes.where(_canLogIn).toList();
+
+  /// Checks files against the ISDS rules in the core. Tests (no core) can
+  /// set [fileChecker]; without either nothing is checked.
+  Future<FileCheck?> checkFiles(List<String> files, int recipients) async {
+    if (fileChecker case final check?) return check(files, recipients);
+    final c = core;
+    if (c == null || files.isEmpty) return null;
+    final r = await c.callAsync('check_files', [
+      jsonEncode({'files': files, 'recipients': recipients}),
+    ]);
+    return FileCheck.fromJson((r as Map).cast<String, dynamic>());
+  }
+
+  Future<FileCheck> Function(List<String> files, int recipients)? fileChecker;
 
   /// Sends a message to one recipient; returns the new message ID.
   /// [envelope] holds the request fields of `OutgoingMessage` in the core.

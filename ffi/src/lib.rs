@@ -501,11 +501,16 @@ pub extern "C" fn dk_send(
                 name,
             });
         }
+        // What ISDS would refuse is not sent at all.
+        let paths: Vec<_> = req.files.iter().map(std::path::Path::new).collect();
+        let check = datovka_core::isds::rules::check_files(&paths, req.recipients.len().max(1));
+        if let Some(text) = check.error_text() {
+            return Err(format!("Zprávu ISDS nepřijme: {text}"));
+        }
         let c = client(&acc)?;
         // Over 20 MB a message must go as a high-volume message (VoDZ),
         // which ISDS cannot send to several recipients at once.
-        let total: usize = msg.files.iter().map(|f| f.content.len()).sum();
-        let big = total > 20 * 1024 * 1024;
+        let big = check.big;
         if req.recipients.len() > 1 && !big {
             return send_to_many(&acc, &c, &msg, &req.recipients);
         }
@@ -530,6 +535,26 @@ pub extern "C" fn dk_send(
         }
         .map_err(|err| session_err(&acc, err))?;
         Ok(json!(dm_id))
+    })())
+}
+
+/// Checks the files of a message against the ISDS rules before sending.
+/// `request` is JSON `{files: [paths], recipients: n}`; returns problems
+/// (`error` blocks sending, `warning` informs), total size and whether it
+/// goes as a high-volume message.
+#[no_mangle]
+pub extern "C" fn dk_check_files(request: *const c_char) -> *mut c_char {
+    respond((|| {
+        let req: Value = serde_json::from_str(&arg(request)?).map_err(e)?;
+        let files: Vec<String> = req
+            .get("files")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            .unwrap_or_default();
+        let recipients = req.get("recipients").and_then(Value::as_u64).unwrap_or(1) as usize;
+        let paths: Vec<_> = files.iter().map(std::path::Path::new).collect();
+        let report = datovka_core::isds::rules::check_files(&paths, recipients);
+        Ok(serde_json::to_value(report).map_err(e)?)
     })())
 }
 

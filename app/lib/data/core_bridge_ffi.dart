@@ -122,6 +122,7 @@ class CoreBridge {
           _Str Function(_Str, _Str, int, _Str)
         >(symbol)(a[0] as _Str, a[1] as _Str, a[2] as int, a[3] as _Str);
       case 'dk_ai_parse_text' ||
+          'dk_check_files' ||
           'dk_rm_settings_get' ||
           'dk_rm_info' ||
           'dk_rm_hierarchy':

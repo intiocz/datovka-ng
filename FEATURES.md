@@ -67,6 +67,7 @@ na testovací prostředí.
 |---|---|---|
 | Nová zpráva, odpověď, přeposlání | ✅ | `CreateMessage`; ověřeno odpovědí finančnímu úřadu (k rukám, č. j.) 29. 10. 2026 |
 | Přílohy včetně přetažení z plochy | ✅ | |
+| Kontrola příloh před odesláním podle pravidel ISDS | ✅ | povolené formáty a MIME typy, nejvýš 100 příloh (10 ZIP/ASiC), 20 MB / 100 MB (VoDZ), název do 255 znaků, prázdné soubory, HTML bez skriptů, pravidla pro ZIP; `core/src/isds/rules.rs` |
 | Více adresátů | 🧪 | `CreateMultipleMessage` (po 50); komu ISDS v ní zprávu nevytvoří (např. jen poštovní zprávou), tomu samostatně `CreateMessage`; VoDZ a poštovní typy po jednom |
 | Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | typy nabízí jen když je ISDS dovolí (`PDZSendInfo` Normal/Init) |
 | Kontrola přístupnosti adresáta | ✅ | `CheckDataBox` po přidání adresáta, do nepřístupné schránky neodešle |
