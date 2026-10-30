@@ -131,10 +131,13 @@ class MessageDetail extends StatelessWidget {
                         const SizedBox(height: 10),
                         _Facts(
                           rows: [
-                            (
-                              received ? 'Doručeno' : 'Odesláno',
-                              longDate(m.delivered),
-                            ),
+                            // Dodání into the box, then doručení (the
+                            // recipient logged in, or by fiction).
+                            ('Dodáno', longDate(m.delivered)),
+                            if (m.accepted != null)
+                              ('Doručeno', longDate(m.accepted!))
+                            else if (!received)
+                              ('Doručeno', 'zatím ne'),
                             ('ID zprávy', m.dmId),
                             if (m.theirRef != null)
                               ('Č. j. odesílatele', m.theirRef!),

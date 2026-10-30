@@ -3,17 +3,29 @@
 use serde::Serialize;
 
 use super::lock::WriteLock;
+use super::state::{became_accepted, state_changed};
 use super::{LegacyAccount, LegacyStore};
 use crate::error::{Error, Result};
 use crate::isds::{Client, Credentials, ListFilter, LoginMethod};
-use crate::model::Direction;
+use crate::model::{Direction, Envelope};
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct SyncReport {
     pub username: String,
     pub new_received: usize,
     pub new_sent: usize,
+    /// Stored messages whose state changed in ISDS (delivered, accepted…).
+    pub updated: usize,
+    /// Sent messages that the recipient has now accepted (doručena).
+    pub delivered: Vec<Delivered>,
     pub errors: Vec<String>,
+}
+
+/// A sent message accepted by its recipient since the last download.
+#[derive(Debug, Clone, Serialize)]
+pub struct Delivered {
+    pub dm_id: i64,
+    pub annotation: Option<String>,
 }
 
 /// ISDS client for an account using the credentials stored in `dsgui.conf`.
@@ -142,14 +154,13 @@ async fn sync_directions(
             let Ok(dm_id) = env.dm_id.parse::<i64>() else {
                 continue;
             };
-            // ISDS may mark a message as suspicious days after delivery.
-            if let Some(flag) = env.spec_mess_flag {
-                if store.contains(account, dm_id)? {
-                    let _ = store.set_spec_mess_flag(lock, account, dm_id, flag);
-                    continue;
-                }
-            }
             if store.contains(account, dm_id)? {
+                // ISDS may mark a message as suspicious days after delivery.
+                if let Some(flag) = env.spec_mess_flag {
+                    let _ = store.set_spec_mess_flag(lock, account, dm_id, flag);
+                }
+                refresh_state(client, store, lock, account, direction, dm_id, &env, &mut report)
+                    .await;
                 continue;
             }
             let zfo = match direction {
@@ -194,6 +205,42 @@ async fn sync_directions(
         }
     }
     Ok(report)
+}
+
+/// A stored message whose state in the list differs (e.g. a sent message
+/// the recipient has accepted since): the envelope is updated and the signed
+/// delivery info with its events downloaded again, like the original app.
+/// Delivery info is not a list of received messages, so it delivers nothing.
+#[allow(clippy::too_many_arguments)]
+async fn refresh_state(
+    client: &Client,
+    store: &LegacyStore,
+    lock: &WriteLock,
+    account: &LegacyAccount,
+    direction: Direction,
+    dm_id: i64,
+    env: &Envelope,
+    report: &mut SyncReport,
+) {
+    let Ok((status, kind)) = store.stored_state(account, dm_id) else {
+        return;
+    };
+    if !state_changed(status, kind.as_deref(), env) {
+        return;
+    }
+    let di = client.download_delivery_info(&env.dm_id).await.ok();
+    match store.update_state(lock, account, dm_id, env, di.as_deref()) {
+        Ok(()) => {
+            report.updated += 1;
+            if direction == Direction::Sent && became_accepted(status, env) {
+                report.delivered.push(Delivered {
+                    dm_id,
+                    annotation: env.annotation.clone(),
+                });
+            }
+        }
+        Err(e) => report.errors.push(format!("{dm_id}: {e}")),
+    }
 }
 
 #[cfg(test)]

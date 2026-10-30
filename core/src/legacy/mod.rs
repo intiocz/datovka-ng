@@ -15,6 +15,7 @@ pub mod pin;
 pub mod query;
 pub mod sealed;
 pub mod stamps;
+pub mod state;
 pub mod secrets;
 pub mod sync;
 mod write;

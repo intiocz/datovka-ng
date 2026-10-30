@@ -143,6 +143,10 @@ class Message {
   /// ISDS marked the message as suspicious (spam, possibly harmful).
   final bool suspicious;
 
+  /// When the recipient accepted the message (doručení: login or fiction);
+  /// null while it is only delivered to the box.
+  final DateTime? accepted;
+
   const Message({
     required this.boxId,
     required this.dmId,
@@ -162,6 +166,7 @@ class Message {
     this.note,
     this.processState = ProcessState.unsettled,
     this.suspicious = false,
+    this.accepted,
   });
 
   DateTime get isdsDeletion => delivered.add(isdsRetention);
@@ -194,6 +199,7 @@ class Message {
     note: clearNote ? null : (note ?? this.note),
     processState: processState ?? this.processState,
     suspicious: suspicious,
+    accepted: accepted,
   );
 }
 

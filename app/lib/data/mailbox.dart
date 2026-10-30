@@ -52,6 +52,9 @@ Message messageFromRow(Map<String, dynamic> r) {
         ) ??
         ProcessState.unsettled,
     suspicious: r['suspicious'] == true,
+    accepted: DateTime.tryParse(
+      r['acceptance_time'] as String? ?? '',
+    )?.toLocal(),
   );
 }
 

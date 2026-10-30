@@ -52,6 +52,7 @@ na testovací prostředí.
 | Doručenka a obálka do PDF, uložení ZFO zprávy i doručenky | ✅ | |
 | Otevřít ZFO v jiné aplikaci, poslat e-mailem (ZFO, přílohy, obojí) | ✅ | |
 | Stáhnout zprávu znovu z ISDS | 🧪 | stará kopie se nahradí až po stažení |
+| Pozdější stav uložených zpráv (doručena, přečtena, v trezoru) | ✅ | jako originál: při stahování se porovná stav v seznamu, při změně se aktualizuje obálka a znovu stáhne doručenka s událostmi; ověřeno na odeslané zprávě 30. 10. 2026 |
 | Hlídání expirace časových razítek | ✅ | Nástroje → Časová razítka, s obnovou; výsledky v `datovka-doplnky.db` |
 | Seznam smazaných zpráv | ✅ | Informace o schránce, `GetListOfErasedMessages` |
 | Velkoobjemové zprávy (VoDZ) | 🧪 | automaticky nad 20 MB; originál a přílohy v souborech vedle databáze jako původní Datovka |

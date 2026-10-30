@@ -36,6 +36,16 @@ String _boxKind(String? type) => switch (type) {
   _ => type,
 };
 
+/// Status line text for sent messages the recipients have accepted since
+/// the last download; null when there are none.
+String? deliveredNotice(List<String> subjects) => switch (subjects) {
+  [] => null,
+  [final one] => 'Zpráva „$one“ byla doručena.',
+  _ when subjects.length < 5 =>
+    'Doručeny ${subjects.length} odeslané zprávy.',
+  _ => 'Doručeno ${subjects.length} odeslaných zpráv.',
+};
+
 /// UI state over the original Datovka archive. Without the native library
 /// the lists stay empty.
 class AppState extends ChangeNotifier {
@@ -1147,6 +1157,7 @@ class AppState extends ChangeNotifier {
     // Only boxes that log in without the user; others are skipped silently.
     final errors = <String>[];
     final skipped = <String>[];
+    final delivered = <String>[];
     var fresh = 0;
     for (final b in boxes) {
       if (b.session != Session.active) {
@@ -1160,6 +1171,9 @@ class AppState extends ChangeNotifier {
           c.deviceName,
         ]) as Map<String, dynamic>;
         fresh += (r['new_received'] as int) + (r['new_sent'] as int);
+        for (final d in (r['delivered'] as List? ?? const [])) {
+          delivered.add('${(d as Map)['annotation'] ?? d['dm_id']}');
+        }
         if (b.login == LoginMethod.password &&
             !passwordExpiry.containsKey(b.id)) {
           try {
@@ -1193,7 +1207,10 @@ class AppState extends ChangeNotifier {
       lastNew: fresh,
       storageName: ArchiveLocation.storageLabel(dataDir ?? CoreBridge.dataDir),
     );
-    activity = errors.isEmpty ? 'Připraveno' : 'Stahování se nepovedlo';
+    // Quietly in the status line: never a window, never the focus.
+    activity = errors.isEmpty
+        ? deliveredNotice(delivered) ?? 'Připraveno'
+        : 'Stahování se nepovedlo';
     syncError = errors.isEmpty ? null : errors.join('\n');
     final blocked = errors.any(
       (e) => e.contains('zapisuje') || e.contains('upravuje'),
