@@ -45,11 +45,15 @@ na kterých selhává `codesign`.
 ```sh
 scripts/build-ios.sh --no-codesign   # iOS; jádro je staticky v Runner (DynamicLibrary.process)
 scripts/build-android.sh             # Android APK do dist/ (cargo-ndk, NDK, JDK 21)
+scripts/package-deb.sh <bundle> <verze> <výstup.deb> [amd64|arm64]
+scripts/package-appimage.sh <bundle> <verze> <výstup.AppImage> [x86_64|aarch64]
 ```
 
 Linux a Windows sestavuje CI (`.github/workflows/build.yml`, funguje i v Gitea
-Actions): jádro `cargo build -p datovka-ffi`, aplikace `flutter build linux|windows`,
-knihovna jádra se přibalí vedle spustitelného souboru.
+Actions; úloha `linux-arm` jen na GitHubu): jádro `cargo build -p datovka-ffi`,
+aplikace `flutter build linux|windows`, knihovna jádra se přibalí vedle
+spustitelného souboru. Flutter pro Linux na ARM se bere z gitu, oficiální
+archiv pro ARM není.
 
 ## Příkazová řádka
 
@@ -90,9 +94,14 @@ Logo vlevo nahoře kreslí `_Mark` v `app/lib/ui/sidebar.dart` podle
 ## Vydání
 
 Značka `v*` (třeba `v1.0.1`) na GitHubu spustí `.github/workflows/release.yml`.
-Ten k vydání přiloží `DatovkaNG-macos.zip`, `DatovkaNG-linux-amd64.deb`
-`DatovkaNG-windows-amd64.zip` a `DatovkaNG-android.apk`, text vydání vezme
-z `docs/vydani/<značka>.md`. APK podepisuje klíč ze secrets
+Ten k vydání přiloží `DatovkaNG-macos.zip`, `DatovkaNG-linux-amd64.deb`,
+`DatovkaNG-linux-arm64.deb`, `DatovkaNG-linux-x86_64.AppImage`,
+`DatovkaNG-linux-aarch64.AppImage`, `DatovkaNG-windows-amd64.zip`
+a `DatovkaNG-android.apk`, text vydání vezme z `docs/vydani/<značka>.md`.
+Aplikace z něj v okně aktualizace ukáže jen část *Co je nového*. Když GitHub
+nepřidělí stroj s macOS, sestaví se `DatovkaNG-macos.zip` lokálně
+(`scripts/build-macos.sh` nad obsahem značky) a vydání se založí ručně
+(`gh release create … --notes-file docs/vydani/<značka>.md`). APK podepisuje klíč ze secrets
 `ANDROID_KEYSTORE_B64` a `ANDROID_KEY_PASSWORD` (originál je mimo repozitář
 v `~/.android-release/datovka-ng.jks`, heslo v Klíčence „Datovka NG Android
 podpisový klíč“); bez stejného klíče se nová verze nenainstaluje přes starou.
@@ -101,6 +110,7 @@ v `app/pubspec.yaml` a `appVersion` v `app/lib/data/updates.dart`. Aplikace
 porovná značku nejnovějšího vydání se svou verzí a nabídne aktualizaci.
 
 Každý push do `main` spustí `.github/workflows/build.yml`: testy jádra
-a aplikace na Linuxu i Windows, sestavení obou balíčků a na Windows krátké
-spuštění aplikace se snímkem obrazovky (artefakt `windows-screen`).
+a aplikace na Linuxu i Windows, sestavení balíčků (.deb a AppImage pro Intel
+i ARM, zip pro Windows) a na Windows krátké spuštění aplikace se snímkem
+obrazovky (artefakt `windows-screen`).
 

@@ -16,7 +16,7 @@ Značky:
 
 Kontrola proti XSD: `core/src/isds/schema_check.rs`
 (`DATOVKA_ISDS_XSD=reference/isds-docs cargo test -p datovka-core schema_check`),
-všech 40 požadavků, které jádro umí sestavit. Výjimky: `UploadAttachment`
+všechny požadavky, které jádro umí sestavit. Výjimky: `UploadAttachment`
 (příloha jako XOP odkaz, XSD ho nepopíše) a `CreateMessage`,
 `CreateMultipleMessage`, `CreateBigMessage`. U těch obálka vynechává prázdné
 prvky, které schéma vyžaduje jako `nil`. Ostré ISDS tvar bez nich přijímá,
@@ -48,10 +48,10 @@ se ruší, NG je už nepoužívá):
 |---|---|---|---|
 | jméno + heslo (HTTP Basic, každé volání) | `https://ws1.datovka.gov.cz/DS/…`, VoDZ `ws2` | `ws1.datovka-test.gov.cz`, `ws2.…` | ✅ |
 | jméno + heslo + SMS kód (TOTP) | `www.datovka.gov.cz/as/processLogin?type=totp…`, pak cookie a `www…/apps/DS/…` | `www.datovka-test.gov.cz` | 🧪 |
-| jméno + heslo + kód z aplikace (HOTP) | totéž, `type=hotp` | | 🧪, **ISDS ho do budoucna ruší** |
+| jméno + heslo + kód z aplikace (HOTP) | totéž, `type=hotp` | | 🧪, ISDS ho ruší: nově se nenabízí, stávající schránky upozorní |
 | Mobilní klíč | `processLogin?type=mep-ws`, stav z `mepWsStateUpdate` | | ✅ (SVJ Helencina) |
 | uživatelský certifikát + heslo | `https://ws1c.datovka.gov.cz/certds/DS/…`, VoDZ `ws2c` | `ws1c.datovka-test.gov.cz` | 🧪 |
-| certifikát bez hesla | NG volá `ws1c…/hspis/DS/…` | | 🧪, **ověřit**: Provozní řád uvádí `hspis/` pro certifikát hostované spisové služby (jméno = ID schránky) a pro systémový certifikát `cert/DS/` |
+| systémový certifikát (bez hesla) | `https://ws1c.datovka.gov.cz/cert/DS/…`, bez jména | | 🧪 (do 1.0.3 omylem `hspis/`, ta je jen pro hostované spisové služby) |
 
 Doručení přihlášením: podle Provozního řádu ho způsobuje **jen
 `GetListOfReceivedMessages`**. Údaje o účtu (db_access), změna hesla
@@ -68,15 +68,15 @@ Doručení přihlášením: podle Provozního řádu ho způsobuje **jen
 | MessageDownload | — | | nepodepsané XML; ukládáme podepsané ZFO |
 | AuthenticateMessage | ✅ | `authenticate_message` | Ověřit zprávu v ISDS, Ověřit soubor ZFO |
 | Re-signISDSDocument | 🧪 | `resign_document` | přerazítkování starých zpráv (když ArchiveISDSDocument vrátí 2214) |
-| DummyOperation | — | | test spojení, nevyužito |
+| DummyOperation | 🧪 | `keep_alive` | udržování přihlášení SMS, kódem a mobilním klíčem každých 25 minut, jako originál; nic nedoručí |
 
 ## VoDZ a archivní razítko (ws2, SOAP 1.2)
 
 | Operace | Stav | Jádro | V aplikaci |
 |---|---|---|---|
-| UploadAttachment | 🧪 (bez XSD, XOP) | `upload_attachment` | odeslání nad 20 MB |
+| UploadAttachment | 🧪 (bez XSD, XOP) | `upload_attachment` | odeslání nad 20 MB; čeká až 300 s (AV kontrola), při chybě 2046 jednou zopakuje |
 | CreateBigMessage | 🧪 | `create_big_message`, `send_big` | odeslání nad 20 MB |
-| SignedBigMessageDownload | 🧪 | `download_big_received` | stahování, když běžné stažení selže |
+| SignedBigMessageDownload | 🧪 | `download_big_received` | stahování, když běžné stažení selže; ukládá se do souborů vedle databáze jako v originálu |
 | SignedSentBigMessageDownload | 🧪 | `download_big_sent` | totéž pro odeslané |
 | AuthenticateBigMessage | 🧪 | `authenticate_big_message` | ověření VoDZ v ISDS |
 | DownloadAttachment | ◻️ | `download_attachment` | přílohy bereme z podepsaného ZFO |
@@ -88,13 +88,13 @@ Doručení přihlášením: podle Provozního řádu ho způsobuje **jen
 | Operace | Stav | Jádro | V aplikaci |
 |---|---|---|---|
 | GetListOfReceivedMessages | ✅ denně | `received_messages` | stahování (**způsobuje doručení**) |
-| GetListOfSentMessages | ✅ denně | `sent_messages` | stahování |
-| GetSignedDeliveryInfo | ✅ denně | `download_delivery_info` | doručenka ke každé zprávě |
+| GetListOfSentMessages | ✅ denně | `sent_messages` | stahování; samo nic nedoručí, proto ho používá i stažení hned po odeslání |
+| GetSignedDeliveryInfo | ✅ denně | `download_delivery_info` | doručenka ke každé zprávě; znovu, když se stav zprávy v seznamu změní (dodáno → doručeno) |
 | GetDeliveryInfo | — | | nepodepsaná doručenka |
 | MarkMessageAsDownloaded | 🧪 | `mark_as_read` | jen s volbou Nastavení → Označovat přečtení i v ISDS (výchozí vypnuto) |
 | MessageEnvelopeDownload | — | | obálku máme ze seznamu a ze ZFO |
 | SentMessageEnvelopeDownload | — | | totéž (nová od 5. 12. 2024) |
-| GetMessageStateChanges | ✅ / ◻️ | `state_changes` | ověřeno, aplikace zatím nepoužívá; šlo by tím levně aktualizovat stav odeslaných (dodáno → doručeno) |
+| GetMessageStateChanges | ✅ / ◻️ | `state_changes` | ověřeno, aplikace nepoužívá: stav uložených zpráv se jako v originálu bere ze seznamů, které se stahují stejně |
 | GetMessageAuthor | — | | nahrazuje GetMessageAuthor2 |
 | GetMessageAuthor2 | ✅ | `message_author` | menu zprávy → Autor |
 | EraseMessage | 🧪 | `erase_message` | Smazat v ISDS (originál zůstane v archivu) |
@@ -102,7 +102,7 @@ Doručení přihlášením: podle Provozního řádu ho způsobuje **jen
 | PickUpAsyncResponse | ✅ | `pick_up_erased` | vyzvednutí seznamu smazaných (ZIP) |
 | VerifyMessage | — | | zastaralé, nahrazuje AuthenticateMessage |
 | RegisterForNotifications, GetListForNotifications | — | | pro serverové systémy; NG stahuje seznamy |
-| SuspMessageReport | ⬜ | | nahlášení spamu (od 27. 3. 2025); kandidát do menu zprávy |
+| SuspMessageReport | 🧪 | `report_suspicious` | menu zprávy → ISDS → Nahlásit jako podezřelou; příznak `specMessFlag` ze seznamu se ukládá a zobrazuje |
 | ConfirmDelivery | — | | ve WSDL už není, PDZ se od 2022 doručují jako běžné zprávy |
 
 ## df: vyhledávání a informace o schránkách (db_search)
@@ -165,14 +165,14 @@ nepotřebuje.
 | 25. 6. 2026 (produkce), leden 2026 (test) | Domény `mojedatovaschranka.cz` → `datovka.gov.cz`, `czebox.cz` → `datovka-test.gov.cz`; staré adresy „výhledově ukončeny“ | NG už používá jen nové | nic; hlídat, že nikde nezůstala stará adresa (dnes žádná) |
 | 25. 6. 2026 (WSDL 3.11) | Jemný typ schránky v `dmSenderType` (obálky, seznamy, doručenky, ZFO) místo hrubého | NG hodnotu jen ukládá do archivu jako číslo, nezobrazuje ji | až ji budeme zobrazovat, počítat s jemnými typy (číselník v dbTypes.xsd) |
 | 16. 4. 2026 (WSDL 3.10) | Virtuální typy `OVM_MAIN`, `PFO_BASE`, `PO_BASE` ve FindDataBox2 a ISDSSearch3 | NG filtruje jen „OVM“ / „vše“ | volitelně nabídnout filtr podle těchto typů |
-| 1. 1. 2026 | Přílohy DDD (digitální tachografy) povoleny | NG typ přílohy neomezuje, kontroluje ISDS | nic |
+| 1. 1. 2026 | Přílohy DDD (digitální tachografy) povoleny | kontrola příloh před odesláním je zná | hotovo |
 | 4. 12. 2025 | Okno pro ArchiveISDSDocument jinak na produkci a v testu (test od druhého dne) | v testovacím prostředí půjde přerazítkování zkoušet hned | využít při testech |
-| 18. 9. 2025 (WSDL 3.09) | ArchiveISDSDocument (archivní razítko), CAdES pečeť podle novější ETSI normy, AV kontrola až ~240 s (chyba 2046 u UploadAttachment) | ArchiveISDSDocument používáme; ověřování podpisu zvládá nové pečetě (ověřeno na tvých zprávách) | ošetřit chybu 2046 česky a delší timeout u VoDZ (dnes 120 s) |
-| 27. 3. 2025 (WSDL 3.08) | SuspMessageReport, příznak „podezřelá zpráva“ (`specMessFlag="1"`) u přijatých | NG příznak nečte ani nezobrazuje | zobrazit varování u zprávy a přidat „Nahlásit jako spam“ |
-| 5. 12. 2024 | Nejvýš 100 příloh, z toho 10 kontejnerů (ZIP/ASiC); pečeť RSA-PSS | ověřování RSA-PSS funguje | upozornit už při psaní, ne až chybou z ISDS |
-| trvá | HOTP „nebude do budoucna podporován“ (Provozní řád) | přihlášení kódem z aplikace (HOTP) časem přestane fungovat | při přidání schránky doporučit Mobilní klíč; hlídat oznámení DIA |
-| trvá | Limity provozu: sleduje se stahování zpráv, doručenek, seznamů a označování přečtení; nad limit zpomalení 3 s, souběžný požadavek odmítnut | NG stahuje jen nové zprávy a schránky postupně | nespouštět stahování jedné schránky souběžně (dnes ho blokuje `sync.running`, ale rychlé stažení odeslané zprávy volá `sync` mimo něj) |
-| trvá | Aplikace na lokální stanici se mají přihlašovat „na manuální příkaz uživatele“, serverové mohou automaticky | NG (stejně jako původní Datovka) stahuje automaticky každých 15 minut | zvážit delší výchozí interval nebo upozornění v Nastavení |
+| 18. 9. 2025 (WSDL 3.09) | ArchiveISDSDocument (archivní razítko), CAdES pečeť podle novější ETSI normy, AV kontrola až ~240 s (chyba 2046 u UploadAttachment) | ArchiveISDSDocument používáme; ověřování podpisu zvládá nové pečetě (ověřeno na tvých zprávách) | hotovo: limit 300 s, chyba 2046 česky a jedno opakování |
+| 27. 3. 2025 (WSDL 3.08) | SuspMessageReport, příznak „podezřelá zpráva“ (`specMessFlag="1"`) u přijatých | NG příznak ukládá a ukazuje v seznamu i detailu, zprávu jde nahlásit | hotovo, naostro neověřeno |
+| 5. 12. 2024 | Nejvýš 100 příloh, z toho 10 kontejnerů (ZIP/ASiC); pečeť RSA-PSS | ověřování RSA-PSS funguje | hotovo: kontrola příloh při psaní (`core/src/isds/rules.rs`) |
+| trvá | HOTP „nebude do budoucna podporován“ (Provozní řád) | přihlášení kódem z aplikace (HOTP) časem přestane fungovat | HOTP se nově nenabízí, stávající schránky upozorní; hlídat oznámení DIA |
+| trvá | Limity provozu: sleduje se stahování zpráv, doručenek, seznamů a označování přečtení; nad limit zpomalení 3 s, souběžný požadavek odmítnut | NG stahuje jen nové zprávy a schránky postupně | hotovo: rychlé stažení odeslané zprávy se s běžným stahováním střídá |
+| trvá | Aplikace na lokální stanici se mají přihlašovat „na manuální příkaz uživatele“, serverové mohou automaticky | automatické stahování je od 1.0.4 ve výchozím stavu ruční, interval si uživatel může zvolit | hotovo |
 
 ## Co chybí ověřit (testovací prostředí)
 
@@ -191,4 +191,4 @@ ideálně dvě, aby si posílaly zprávy.
 | přerazítkování (v testu jde hned) | ArchiveISDSDocument, Re-signISDSDocument |
 | změna hesla | ChangeISDSPassword, SendSMSCode, ChangePasswordOTP |
 | správa uživatelů | AddDataBoxUser2, UpdateDataBoxUser2, DeleteDataBoxUser2 |
-| přihlášení | SMS (TOTP), kód z aplikace (HOTP), certifikát (`certds/`, a `hspis/` vs `cert/`) |
+| přihlášení | SMS (TOTP), kód z aplikace (HOTP), certifikát (`certds/` s heslem, `cert/` systémový) |

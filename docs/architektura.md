@@ -8,11 +8,12 @@
 └───────────────────────┬──────────────────────────────┘
                         │ C ABI, JSON řetězce
 ┌───────────────────────▼──────── ffi/ (Rust, cdylib) ─┐
-│ dk_accounts, dk_messages, dk_attachments, dk_save_*, │
-│ dk_set_read, dk_sync, dk_search, dk_send, dk_free    │
+│ dk_accounts, dk_messages, dk_sync, dk_sync_sent,     │
+│ dk_send, dk_check_files, dk_op, dk_keep_alive, …     │
 └───────────────────────┬──────────────────────────────┘
 ┌───────────────────────▼──────── core/ (Rust) ────────┐
-│ isds/     SOAP klient ISDS (dz, dx, df, DsManage)    │
+│ isds/     SOAP klient ISDS (dz, dx, df, DsManage,    │
+│           VoDZ, arch), pravidla příloh (rules.rs)    │
 │ legacy/   data původní Datovky: dsgui.conf, SQLite,  │
 │           zápis stažených zpráv, zámek, synchronizace│
 │ zfo, ber  čtení podepsaných zpráv (CMS/BER)          │
@@ -35,15 +36,25 @@ DATOVKA zachovává formát dat původní Datovky (`~/.dsgui`):
   `inv` pro zprávy bez data, `0` produkce, `1` test. Hlavní tabulky:
   - `messages`: obálka, časy `yyyy-MM-dd HH:mm:ss.zzz+00:00` v UTC,
   - `supplementary_message_data`: `message_type` (1 přijatá, 2 odeslaná),
-    `read_locally`, `attsNum`, `download_date`,
+    `read_locally`, `attsNum`, `download_date`, `specMessFlag` (podezřelá),
   - `files`: přílohy, `dmEncodedContent` jako base64 TEXT,
   - `raw_message_data`, `raw_delivery_info_data`: podepsané ZFO jako base64,
     uložené jako BLOB (původní aplikace váže `QByteArray::toBase64()`),
-  - `events`, `process_state`.
+  - `events`, `process_state`, `hashes`, `certificate_data`,
+    `message_certificate_data`.
+- `tag.db`: štítky a poznámky původní aplikace.
+- `datovka-doplnky.db`: jen Datovka NG (lhůty, koncepty, přehled razítek);
+  původní aplikace ho ignoruje.
 
 Zápis (`core/src/legacy/write.rs`) odpovídá `MessageDb::insertMessageEnvelope`
-a souvisejícím funkcím původní aplikace. Nová roční databáze se vytvoří se
-schématem převzatým ze stávající databáze.
+a souvisejícím funkcím původní aplikace, včetně `is_verified`,
+`_origin = 'tReturnedMessage'`, otisku (`hashes`) a podpisového certifikátu,
+aby původní aplikace zprávu brala jako celou staženou. Nová roční databáze
+se vytvoří se schématem převzatým ze stávající databáze.
+
+Stav uložených zpráv se při stahování porovná se seznamem z ISDS jako
+v originálu. Při změně (dodáno → doručeno, trezor) se aktualizuje obálka,
+znovu stáhne podepsaná doručenka a doplní události (`core/src/legacy/state.rs`).
 
 Velkoobjemové zprávy (VoDZ) ukládá původní aplikace od verze 4.23 mimo
 databázi a Datovka NG stejně: ve složce vedle roční databáze (její cesta bez
@@ -85,10 +96,13 @@ složku. Proto:
   o zprávách (seznamy, doručenky, ověření), `DS/df` = vyhledávání,
   `DS/DsManage` = správa schránky.
 - Přihlášení jménem a heslem přes HTTP Basic při každém volání na `ws1`.
+- Certifikát: `ws1c…/cert/` (systémový, bez jména) nebo `ws1c…/certds/`
+  (uživatelský s jménem a heslem).
 - SMS, kód z aplikace a mobilní klíč: `www.datovka.gov.cz/as/processLogin?type=…&uri=…/apps/DS/dz`,
   dál session cookie a služby na `www.datovka.gov.cz/apps/DS/…`. Mobilní klíč
   vrací adresu `mepWsStateUpdate`, ze které se čte stav (1 čeká, 2 potvrzeno,
-  3 odmítnuto nebo vypršelo).
+  3 odmítnuto nebo vypršelo). Sezení vyprší po 30 minutách nečinnosti,
+  Datovka ho každých 25 minut udrží přes `DummyOperation`.
 - Odpovědi mohou být MTOM/XOP (`multipart/related`), rozdělení řeší
   `core/src/isds/multipart.rs`.
 - Chyby: `dmStatus`/`dbStatus` (kód `0000` = OK), SOAP Fault, hlavičky
@@ -103,7 +117,11 @@ složku. Proto:
 | `GetSignedDeliveryInfo` | dx | doručenky |
 | `MarkMessageAsDownloaded` | dx | označení přečtení v ISDS |
 | `CreateMessage` | dz | odeslání |
-| `ISDSSearch2` | df | adresář schránek |
+| `ISDSSearch3` | df | adresář schránek |
+
+Úplný přehled operací a jejich stavu je v [isds-api.md](isds-api.md).
+Doručení přihlášením způsobuje jen `GetListOfReceivedMessages`; stažení jen
+odeslaných zpráv (např. hned po odeslání) nic nedoručí.
 
 ## Zásady chování
 

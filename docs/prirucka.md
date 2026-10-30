@@ -17,6 +17,9 @@ v Nastavení nezkopíruje do Dokumentů. Uvnitř souboru jsou pořád stejné da
 | `dsgui.conf` | seznam schránek, přihlašovací údaje |
 | `messages.shelf.db` | údaje o schránkách (ID, vlastník) |
 | `{uživatel}_{rok}___0.db` | zprávy daného roku včetně podepsaných originálů (ZFO) |
+| `{uživatel}_{rok}___0/` | velkoobjemové zprávy daného roku: originál, doručenka a přílohy jako soubory |
+| `tag.db` | štítky a poznámky, sdílené s původní Datovkou |
+| `datovka-doplnky.db` | jen Datovka NG: lhůty, koncepty, přehled časových razítek |
 | `.datovka-zamek.json` | zámek: které zařízení právě zapisuje |
 
 Na Windows a Linuxu je archiv ve složce `.dsgui` v domovské složce, stejně
@@ -107,13 +110,16 @@ stáhnout hned*), zpráva pak přijde s dalším stahováním.
 
 - Otevřením se zpráva označí jako přečtená, stejně jako v původní Datovce.
   Ikonou obálky v liště ji můžete označit zase jako nepřečtenou.
-  otevírá.
 - **Uložit podepsanou zprávu (ZFO)**: ikona stažení v liště. Originál ZFO je
   právně platný doklad, který lze předložit úřadu nebo soudu.
 - **Lhůta**: u zprávy můžete nastavit lhůtu (8, 15, 30 dní nebo vlastní datum).
   Zobrazí se ukazatel v seznamu a zpráva se objeví ve složce Lhůty. Barva se mění
-  podle toho, kolik času zbývá. *Lhůty se zatím neukládají, po zavření
-  aplikace zmizí.*
+  podle toho, kolik času zbývá. Lhůty se ukládají do archivu
+  (`datovka-doplnky.db`), takže je vidí i ostatní zařízení.
+- **Odeslaná zpráva** ukazuje zvlášť čas dodání a čas doručení. Když adresát
+  zprávu převezme, Datovka to při dalším stahování zjistí, doplní čas
+  doručení, stáhne novou doručenku a ve stavovém řádku napíše „Zpráva …
+  byla doručena“.
 
 ## Psaní zprávy
 
@@ -125,7 +131,10 @@ stáhnout hned*), zpráva pak přijde s dalším stahováním.
 4. Vyplňte **věc**, případně čísla jednací, *K rukám* a *Do vlastních rukou*.
 5. Přidejte dokumenty: přetáhněte je do okna z plochy, Finderu nebo jiné
    aplikace, nebo použijte *Přidat soubory*. První je hlavní písemnost, další
-   jsou přílohy.
+   jsou přílohy. Datovka je hned zkontroluje podle pravidel ISDS (povolené
+   formáty, nejvýš 100 příloh, z toho 10 ZIP, velikost, prázdné soubory, obsah
+   ZIP) a problém ukáže pod seznamem dokumentů. Dokud trvá chyba, zpráva se
+   neodešle; varování odeslání nebrání.
 6. Klikněte na *Odeslat*. Po odeslání se zobrazí ID nové zprávy. Do
    Odeslaných se zpráva stáhne, jakmile ji ISDS dodá (viz Stahování zpráv).
 
@@ -189,10 +198,15 @@ případně první schránkou s uloženým heslem.
 - **Nástroje** (⋮ vlevo dole): ověřit soubor ZFO, importovat ZFO (nebo je
   přetáhněte do okna), přehled korespondence do CSV, záloha a obnova,
   AI asistent, nastavení.
-- **Nastavení** (⌘,): jak často stahovat, stahování po spuštění, stažení
-  odeslané zprávy hned po dodání, označování přečtení v ISDS, zobrazení
-  (velikost písma o kousek menší nebo větší, světlý nebo tmavý vzhled),
-  síť (proxy), archiv, asistent, aktualizace. Na telefonu také zámek.
+- **Nastavení** (⌘,): Stahování (jak často, po spuštění, odeslanou zprávu
+  hned, udržovat přihlášení, označovat přečtení v ISDS), Zobrazení (velikost
+  písma o kousek menší nebo větší, světlý nebo tmavý vzhled), Síť (proxy),
+  Archiv (jiný archiv, automatické zálohy), Asistent, Aktualizace. Na
+  telefonu také Zámek.
+- **Kód z aplikace (HOTP)**: ISDS tento způsob přihlášení ruší. U nové
+  schránky se už nenabízí, schránka, která ho má, při přihlášení upozorní.
+  Na portálu datových schránek si zapněte mobilní klíč nebo SMS a pak změňte
+  způsob přihlášení schránky.
 
 ## Automatické zálohy
 
@@ -228,8 +242,10 @@ Ukládejte ji tam, kam se nedostane nikdo cizí.
   *Zadat PIN*. PIN se nikam neukládá, platí do zavření aplikace.
 - **Certifikát**: u schránky s přihlášením certifikátem zadáte při přihlášení
   heslo k certifikátu (soubor .p12/.pfx z nastavení schránky, nebo ho vyberete).
-- **Velkoobjemové zprávy**: zprávy nad 20 MB se odešlou a stáhnou automaticky
-  jako velkoobjemové.
+- **Velkoobjemové zprávy**: zprávy nad 20 MB (do 100 MB) se odešlou a stáhnou
+  automaticky jako velkoobjemové. Ukládají se do souborů vedle databáze,
+  stejně jako v původní Datovce. ISDS přílohy kontroluje antivirem až
+  4 minuty, Datovka počká.
 
 ## Instalace
 
@@ -271,8 +287,8 @@ Ručně to zkontrolujete kliknutím na číslo verze ve stavovém řádku.
 
 U příloh zprávy je tlačítko *Najít termíny (AI)*. Asistent přečte přílohy,
 napíše shrnutí, navrhne lhůtu a najde termíny (lhůty, platby, jednání). Vybrané
-termíny přidáte do kalendáře (na počítači se otevře import do Kalendáře,
-na iPhonu se zapíšou rovnou) nebo na počítači uložíte jako `.ics`. Lhůty
+termíny přidáte do kalendáře (na počítači a na Androidu se otevře import do
+kalendáře, na iPhonu se zapíšou rovnou) nebo na počítači uložíte jako `.ics`. Lhůty
 a platby jdou do kalendáře o den dřív. Navrženou lhůtu můžete nastavit
 jako lhůtu zprávy.
 
@@ -280,7 +296,7 @@ Před rozborem se ukáže, co se čte. Text příloh může opustit tento počí
 API klíč je v Klíčence (na Windows ve Správci pověření, na Linuxu
 v úložišti hesel), nikdy v archivu. Termíny vždy ověřte v dokumentu.
 
-Na iPhonu jde asistent připojit jen přes API klíč (Claude nebo OpenAI).
+Na telefonu jde asistent připojit jen přes API klíč (Claude nebo OpenAI).
 Model v počítači ani Claude Code v telefonu běžet nemohou.
 
 ## Řešení potíží
@@ -288,7 +304,8 @@ Model v počítači ani Claude Code v telefonu běžet nemohou.
 | Hláška | Co dělat |
 |---|---|
 | *zařízení X právě zapisuje* | Čtení funguje. Chvíli počkejte a zvolte Znovu. Když je to zařízení vypnuté, zvolte Převzít. |
-| *přihlášení vypršelo* | Schránka s SMS, kódem nebo mobilním klíčem. Klikněte na *Přihlásit* v pruhu nad seznamem. |
+| *přihlášení vypršelo* | Schránka s SMS, kódem nebo mobilním klíčem. Klikněte na *Přihlásit* v pruhu nad seznamem. Udržování přihlášení zapnete v Nastavení → Stahování. |
+| *ISDS by zprávu odmítl* (při psaní) | Některá příloha nesplňuje pravidla ISDS, důvod je pod seznamem dokumentů. Soubor odeberte nebo převeďte (např. do PDF). |
 | *heslo se neuložilo: systém se ptal na heslo k nové klíčence* | Linux: uložte heslo znovu a v systémovém okně zvolte heslo klíčence. |
 | *nepodařilo se spojit se serverem*, *spojení se serverem se přerušilo* | Datovka zkouší spojení znovu sama. Pokud hláška trvá, zkontrolujte připojení nebo proxy v Nastavení → Síť. |
 | *ISDS chyba …* | Text chyby pochází přímo z ISDS (např. neplatný adresát nebo nepovolený formát přílohy). |

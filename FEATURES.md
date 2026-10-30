@@ -21,7 +21,7 @@ na testovací prostředí.
 | Udržování přihlášení (SMS, kód, mobilní klíč) | 🧪 | každých 25 minut `DummyOperation` jako originál od 4.25; nic nedoručí; Nastavení → Stahování |
 | Heslo + SMS kód | 🧪 | `type=totp` |
 | Heslo + kód z aplikace (HOTP) | 🧪 | `type=hotp`; ISDS ho ruší, nově se nenabízí, stávající schránky upozorní |
-| Certifikát, certifikát + heslo | 🧪 | PKCS#12, `ws1c` `certds/`/`hspis/`; ne na Androidu |
+| Certifikát, certifikát + heslo | 🧪 | PKCS#12, `ws1c` `cert/` (systémový) a `certds/` (s heslem); ne na Androidu |
 | Testovací prostředí | 🧪 | |
 | Upozornění na konec platnosti hesla | ✅ | `GetPasswordInfo` ověřeno na ostrém ISDS |
 | Změna hesla | 🧪 | uložené heslo se aktualizuje |
@@ -39,7 +39,7 @@ na testovací prostředí.
 | Přijaté, odeslané, stahování do sdílených databází | ✅ | |
 | Podepsané ZFO, doručenky, události | ✅ | |
 | Přečtení (lokálně, volitelně i v ISDS) | ✅ | |
-| Automatické stahování, stahování po spuštění | ✅ | nastavení ⌘, |
+| Automatické stahování, stahování po spuštění | ✅ | Nastavení → Stahování; interval ve výchozím stavu ručně (Provozní řád ISDS) |
 | Ověření zprávy v ISDS | ✅ | uložené ZFO přes `AuthenticateMessage`; u VoDZ `AuthenticateBigMessage` 🧪; zastaralá `VerifyMessage` se už nevolá |
 | Ověření souboru ZFO v ISDS | ✅ | `AuthenticateMessage`, u VoDZ `AuthenticateBigMessage` 🧪 |
 | Lokální ověření podpisu a časového razítka | ✅ | ověřeno na vzorových i tvých zprávách |
@@ -67,7 +67,7 @@ na testovací prostředí.
 |---|---|---|
 | Nová zpráva, odpověď, přeposlání | ✅ | `CreateMessage`; ověřeno odpovědí finančnímu úřadu (k rukám, č. j.) 29. 10. 2026 |
 | Přílohy včetně přetažení z plochy | ✅ | |
-| Kontrola příloh před odesláním podle pravidel ISDS | ✅ | povolené formáty a MIME typy, nejvýš 100 příloh (10 ZIP/ASiC), 20 MB / 100 MB (VoDZ), název do 255 znaků, prázdné soubory, HTML bez skriptů, pravidla pro ZIP; `core/src/isds/rules.rs` |
+| Kontrola příloh před odesláním podle pravidel ISDS | 🧪 | povolené formáty a MIME typy, nejvýš 100 příloh (10 ZIP/ASiC), 20 MB / 100 MB (VoDZ), název do 255 znaků, prázdné soubory, HTML bez skriptů, pravidla pro ZIP; `core/src/isds/rules.rs` |
 | Více adresátů | 🧪 | `CreateMultipleMessage` (po 50); komu ISDS v ní zprávu nevytvoří (např. jen poštovní zprávou), tomu samostatně `CreateMessage`; VoDZ a poštovní typy po jednom |
 | Poštovní datové zprávy (iniciační, odpověď, smluvní) | 🧪 | typy nabízí jen když je ISDS dovolí (`PDZSendInfo` Normal/Init) |
 | Kontrola přístupnosti adresáta | ✅ | `CheckDataBox` po přidání adresáta, do nepřístupné schránky neodešle |
@@ -96,7 +96,8 @@ na testovací prostředí.
 | Obálka do PDF, tisk | ✅ | |
 | Přehled korespondence (CSV) | ✅ | |
 | Odeslání e-mailem | ✅ | |
-| Záloha a obnova | ✅ | |
+| Záloha a obnova | ✅ | jeden ZIP; obnova i do telefonu |
+| Automatické zálohy | ✅ | na počítači: složka, denně nebo týdně, ponechat 3–30 záloh |
 | Import databází mobilní Datovky | ✅ | |
 | Obnova časových razítek | 🧪 | `Re-signISDSDocument` |
 | Spisová služba | 🧪 | REST jako originál |
@@ -108,7 +109,8 @@ na testovací prostředí.
 |---|---|---|
 | AI asistent: termíny z příloh, lhůta, kalendář (ICS) | 🧪 | Claude API nebo lokální Claude Code; na iPhonu API klíč a zápis přímo do Kalendáře |
 | Zamykání aplikace biometrikou nebo kódem telefonu (iPhone, Android) | 🧪 | Nastavení → Zámek, jen v telefonu |
-| Automatická aktualizace z vydání na GitHubu | ✅ | Mac a Windows vyzkoušené (1.0.1 → 1.0.2); Linux `.deb` 🧪; iPhone jen otevře stránku vydání |
+| Automatická aktualizace z vydání na GitHubu | ✅ | Mac vyzkoušený (1.0.1 → 1.0.3); Windows opravené v 1.0.3 (dřív skript nespustil), Linux `.deb` a AppImage, Android 🧪; iPhone jen otevře stránku vydání |
+| Zobrazení: velikost písma, světlý a tmavý vzhled | ✅ | Nastavení → Zobrazení |
 | Procházení po letech a měsících | ✅ | strom ve složkách vlevo |
 
 ## Platformy
@@ -117,7 +119,7 @@ na testovací prostředí.
 |---|---|
 | macOS | ✅ `DatovkaNG-macos.zip` z vydání, aktualizuje se sám |
 | Windows | ✅ `DatovkaNG-windows-amd64.zip` z vydání, vyzkoušeno ve Windows 11, aktualizuje se sám |
-| Linux | 🧪 `DatovkaNG-linux-amd64.deb` z vydání; v CI se sestaví a zabalí, na skutečném počítači zatím nevyzkoušeno |
+| Linux | 🧪 `DatovkaNG-linux-amd64.deb` a `-arm64.deb` z vydání; arm64 vyzkoušený v Ubuntu 24.04 ve virtuálu, amd64 jen v CI |
 | Linux (ostatní distribuce) | 🧪 `DatovkaNG-linux-x86_64.AppImage` a `aarch64`, aktualizuje se sám přepsáním souboru |
 | iOS | 🧪 běží na iPhonu nad archivem z iCloud Drive; podepisuje se v Xcode, v App Store není |
 | Android | 🧪 podepsané `DatovkaNG-android.apk` z vydání (arm64); archiv se přenáší zálohou ZIP, iCloud na Androidu není; aktualizace se stáhne a předá systémovému instalátoru |
@@ -127,4 +129,5 @@ na testovací prostředí.
 - Synchronizace na pozadí nikdy neotevírá okna a nekrade fokus.
 - Interaktivní přihlášení (SMS, kód, mobilní klíč) se na pozadí nikdy samo
   nespouští a neposílá opakovaná upozornění. Schránka jen zobrazí tichý pruh
-  s tlačítkem „Přihlásit“.
+  s tlačítkem „Přihlásit“. Jednou přihlášenou schránku Datovka udržuje
+  (`DummyOperation`), nic tím nedoručí.

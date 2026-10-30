@@ -51,7 +51,18 @@ class HelpView extends StatelessWidget {
           ),
           const _P(
             'Kdo má ještě původní složku ~/.dsgui, tomu ji Datovka NG nechá, dokud '
-            'archiv v Nastavení nepřesune do Dokumentů. Původní složka se přitom nesmaže.',
+            'archiv v Nastavení nepřesune do Dokumentů. Původní složka se přitom nesmaže. '
+            'Na Windows a Linuxu je archiv v ~/.dsgui, na Androidu v úložišti aplikace '
+            '(přenáší se zálohou).',
+          ),
+          const _P(
+            'Datovka NG nic nepřevádí. Kdykoli se dá vrátit k původní Datovce od CZ.NIC '
+            'a ta uvidí všechny zprávy včetně příloh a originálů. Jen obě aplikace '
+            'nespouštějte naráz nad stejným archivem.',
+          ),
+          const _P(
+            'Na počítači jde v Nastavení → Archiv zapnout automatické zálohy do zvolené '
+            'složky, denně nebo týdně, s počtem záloh, které se ponechají.',
           ),
           const _H('Stahování a čtení'),
           const _P(
@@ -61,13 +72,24 @@ class HelpView extends StatelessWidget {
             'čekajících zpráv. Stažení odeslaných zpráv nic nedoručí.',
           ),
           const _P(
+            'Automatické stahování je ve výchozím stavu ruční: zprávy se stáhnou po '
+            'spuštění a tlačítkem. Interval si zvolíte v Nastavení → Stahování.',
+          ),
+          const _P(
             'Schránka s SMS, kódem nebo mobilním klíčem se na pozadí nikdy nepřihlašuje. '
-            'Nad seznamem se jen objeví pruh Přihlásit.',
+            'Nad seznamem se jen objeví pruh Přihlásit. Jednou přihlášenou schránku '
+            'Datovka každých 25 minut udrží, nic tím nedoručí.',
           ),
           const _P(
             'Odeslanou zprávu ISDS obvykle do několika vteřin dodá adresátovi, teprve '
             'pak se dá stáhnout. Datovka se po odeslání několikrát podívá znovu, takže '
-            'zpráva bývá v Odeslaných do minuty. Vypnout jde v Nastavení → Stahování.',
+            'zpráva bývá v Odeslaných do minuty. Vypnout jde v Nastavení → Stahování. '
+            'Když ji adresát převezme, Datovka to při stahování zjistí a doplní čas '
+            'doručení.',
+          ),
+          const _P(
+            'Zprávu, kterou ISDS označí jako podezřelou (spam), Datovka označí v seznamu '
+            'i v detailu. Přijatou zprávu jde nahlásit v menu zprávy → ISDS.',
           ),
           const _P(
             'Pravým tlačítkem na schránku (na telefonu podržením) ji přejmenujete, '
@@ -86,7 +108,9 @@ class HelpView extends StatelessWidget {
           const _H('Psaní'),
           const _P(
             'Napsat zprávu, Odpovědět, nebo schránka z adresáře. Vyplňte ID schránky '
-            'adresáta (7 znaků), věc a přílohy. První soubor je hlavní písemnost.',
+            'adresáta (7 znaků), věc a přílohy. První soubor je hlavní písemnost. '
+            'Přílohy se hned kontrolují podle pravidel ISDS (formáty, počet, velikost); '
+            'co by ISDS odmítl, se ukáže pod seznamem a zprávu nepustí.',
           ),
           const _H('Asistent'),
           const _P(

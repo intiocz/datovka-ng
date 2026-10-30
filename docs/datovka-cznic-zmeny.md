@@ -48,8 +48,8 @@ nevydaná). Na Macu je nainstalovaná 4.29.5. Stav k 30. 10. 2026.
 
 | Problém (verze) | Týká se NG? | Proč |
 |---|---|---|
-| ZIP v běžné zprávě musí mít MIME typ (4.23.4) | ověřit | NG MIME bere z přípony. Pro `.zip` to sedí, odeslání ZIPu ale nikdo nezkoušel. |
-| Max. 50 příloh, rozšířené povolené typy (4.23.4) | ověřit | NG počet příloh ani typy předem nehlídá, chybu vrátí až ISDS. |
+| ZIP v běžné zprávě musí mít MIME typ (4.23.4) | ne | NG bere MIME typy z tabulky ISDS (od 1.0.5) a ZIP před odesláním kontroluje. Odeslání ZIPu na ISDS ale nikdo nezkoušel. |
+| Max. 50 příloh, rozšířené povolené typy (4.23.4) | ne | NG od 1.0.5 kontroluje přílohy před odesláním podle aktuálních pravidel ISDS (nejvýš 100 příloh, z toho 10 ZIP/ASiC, povolené formáty). Originál má dosud 50. |
 | E-podání omylem jako VoDZ (4.24.1) | ověřit | NG posílá jako VoDZ nad 20 MB. Žádosti e-podání jsou malé, riziko je malé. |
 | Obálka VoDZ zpráv ze starých seznamů (4.24.0) | ne | NG takové seznamy nemá. |
 | `AuthenticateMessage` místo `VerifyMessage` (4.28.0) | ne | NG už používá `AuthenticateMessage`, ověřeno na ostrém ISDS. |
@@ -61,7 +61,7 @@ nevydaná). Na Macu je nainstalovaná 4.29.5. Stav k 30. 10. 2026.
 | Problém (verze) | Týká se NG? | Proč |
 |---|---|---|
 | Smyčka mobilního klíče na novém macOS (4.23.5), nový způsob zjišťování stavu (4.29.1) | ověřit | NG mobilní klíč používá na ostrém ISDS. Jestli ISDS starý způsob zjišťování stavu nevypne, sledovat. |
-| Sezení HOTP, TOTP a mobilního klíče vyprší (4.25.0) | ano | Originál je udržuje živá ve zvláštním vlákně. NG po vypršení jen ukáže pruh Přihlásit. |
+| Sezení HOTP, TOTP a mobilního klíče vyprší (4.25.0) | ne | NG od 1.0.5 sezení udržuje jako originál (`DummyOperation` každých 25 minut). |
 
 ### Platformy
 
@@ -75,19 +75,19 @@ nevydaná). Na Macu je nainstalovaná 4.29.5. Stav k 30. 10. 2026.
 
 | Novinka (verze) | NG | Poznámka |
 |---|---|---|
-| Velkoobjemové zprávy, příjem i odesílání (4.23) | má | Odesílání neověřené na ISDS. |
+| Velkoobjemové zprávy, příjem i odesílání (4.23) | má | Od 1.0.4 v souborech vedle databáze jako originál. Odesílání neověřené na ISDS. |
 | Průběh nahrávání příloh a odesílání (4.23.2) | nemá | NG ukazuje jen „odesílám“. |
 | Zveřejnění identity odesílatele, `GetMessageAuthor2` (4.22) | má | |
 | Varování, když se PDF příloha změnila po přiložení (4.24.0) | nemá | |
 | Omezení hledání datem (4.24.1) | má | |
 | ID schránek v přehledu korespondence (4.24.1) | ověřit | Zkontrolovat sloupce CSV. |
 | Export a import zpráv v CLI (4.24.0) | částečně | CLI NG umí výpis, stažení, ZFO. Export a import zpráv ne. |
-| Udržování sezení, seznam aktivních sezení (4.25.0) | nemá | Viz výše. |
-| Světlé a tmavé téma (4.25, 4.26) | má | Podle systému. |
-| Škálování písma (4.26.0) | nemá | Na počítači jde jen přes systém. |
+| Udržování sezení, seznam aktivních sezení (4.25.0) | částečně | Udržování ano (od 1.0.5, Nastavení → Stahování), seznam aktivních sezení ne. |
+| Světlé a tmavé téma (4.25, 4.26) | má | Podle systému nebo ručně (Nastavení → Zobrazení). |
+| Škálování písma (4.26.0) | má | Nastavení → Zobrazení: menší, běžná, větší (od 1.0.4). |
 | „Co je nového“ (4.26.0) | má | Seznam změn v okně aktualizace. |
 | Nástroj na záchranu poškozených databází (4.26.0) | nemá | |
-| `--conf-dir`, změna adresáře databází (4.27.0) | částečně | NG umí jinou složku archivu. **Klíč `database_dir` u schránky v `dsgui.conf` ignoruje.** |
+| `--conf-dir`, změna adresáře databází (4.27.0) | má | NG umí jinou složku archivu a od 1.0.4 i `database_dir` u schránky. |
 | Sledování a přerazítkování časových razítek (4.27–4.29) | částečně | NG má přehled expirace a obnovu. Seznam sledovaných zpráv originálu (`timestamp.db`) nečte ani nezapisuje, výsledky drží ve vlastním `datovka-doplnky.db`. |
 | Archivní časová razítka v CMS (4.27.0) | ověřit | Ověřování podpisu v NG archivní razítka nejspíš nezná. Po přerazítkování by se mělo ukázat nejnovější razítko. |
 | Export pro mobilní aplikaci (4.27.0) | ne | NG převádí archiv zálohou ZIP. |
@@ -104,12 +104,10 @@ nevydaná). Na Macu je nainstalovaná 4.29.5. Stav k 30. 10. 2026.
    `raw_message_data.data` je NULL) leží obsah v
    `<rok-db bez .db>/<dmID>/`: `DDZ_<id>.zfo` (přijatá), `ODZ_<id>.zfo`
    (odeslaná), `DD_<id>.zfo` (doručenka), `ATT_<id>_<attNum>_<název>`
-   (přílohy). **NG to dnes nečte.** U tvého archivu takové složky nejsou,
-   u uživatelů s VoDZ ano.
+   (přílohy). NG to od 1.0.4 čte i zapisuje stejně.
 2. **`database_dir` v `dsgui.conf` (u schránky).** Originál umí mít
-   databáze schránky jinde než konfiguraci. **NG klíč ignoruje** a takové
-   schránce by ukázal prázdný seznam. Při zápisu `dsgui.conf` ho ale
-   neztratí (zachovává neznámé klíče, ověřit).
+   databáze schránky jinde než konfiguraci. NG ho od 1.0.4 respektuje
+   (čtení, zápis i záloha).
 3. **`_db_info` a verze formátu (4.29.6, nevydaná).** Tabulka
    `_db_info (id, entry_name, entry_json)` v každé databázi zpráv. Až
    vyjde, zjistit, jaký záznam píše a jak převádí, a NG naučit totéž.
@@ -132,17 +130,14 @@ nevydaná). Na Macu je nainstalovaná 4.29.5. Stav k 30. 10. 2026.
 
 ## 5. Doporučení (podle priority)
 
-1. **Číst obsah VoDZ ze složek vedle databáze** (bod 4.1). Bez toho
-   uživatel originálu po přechodu na NG „ztratí“ velkoobjemové zprávy.
-2. **Respektovat `database_dir`** u schránky v `dsgui.conf` (bod 4.2).
-3. **Sledovat vydání 4.29.6** a formát `_db_info`, včas NG přizpůsobit.
-4. **Zapisovat platnost razítka do `timestamp.db`** po přerazítkování v NG,
+Hotovo: obsah VoDZ ve složkách a `database_dir` (1.0.4), udržování
+sezení a kontrola příloh před odesláním (1.0.5).
+
+1. **Sledovat vydání 4.29.6** a formát `_db_info`, včas NG přizpůsobit.
+2. **Zapisovat platnost razítka do `timestamp.db`** po přerazítkování v NG,
    případně číst seznam sledovaných zpráv originálu.
-5. **Udržování sezení** u SMS, kódu z aplikace a mobilního klíče, ať se
-   nemusí přihlašovat znovu po každém vypršení.
-6. Kontroly před odesláním: max. 50 příloh, povolené typy souborů,
-   varování u změněného PDF.
-7. Koncepty z `drafts.db` aspoň zobrazit, aby se při přechodu neztratily.
-8. Archivní časová razítka v ověření podpisu.
-9. Drobnosti: preferovaný způsob platby PDZ, česky pojmenované události
+3. Varování u PDF změněného po přiložení.
+4. Koncepty z `drafts.db` aspoň zobrazit, aby se při přechodu neztratily.
+5. Archivní časová razítka v ověření podpisu.
+6. Drobnosti: preferovaný způsob platby PDZ, česky pojmenované události
    kreditu, průběh odesílání, záchrana poškozené databáze.

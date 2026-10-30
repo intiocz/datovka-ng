@@ -40,13 +40,18 @@ zvolíte) a zprávy se dají procházet po letech a měsících.
 - **Jeden archiv na Macu, iPhonu i dalších počítačích.** Archiv může ležet na
   iCloud Drive nebo ve sdílené složce. Číst jde odkudkoli najednou, zápis si
   bere krátký zámek, aby se soubory nerozbily.
-- **Všechny způsoby přihlášení:** jméno a heslo, SMS kód, kód z aplikace,
-  mobilní klíč, certifikát. Schránky se SMS nebo mobilním klíčem se na pozadí
-  nepřihlašují a nikoho neruší, jen počkají na přihlášení.
+- **Všechny způsoby přihlášení:** jméno a heslo, SMS kód, mobilní klíč,
+  certifikát (kód z aplikace jen u stávajících schránek, ISDS ho ruší).
+  Schránky se SMS nebo mobilním klíčem se na pozadí nepřihlašují a nikoho
+  neruší, jen počkají na přihlášení. Jednou přihlášené Datovka udrží.
 - **Lhůty.** U zprávy si nastavíte termín, aplikace ho hlídá a ukáže, kolik
   zbývá. Do kalendáře jde lhůta o den dřív, aby se stihla.
 - **Psaní zpráv** s přetažením příloh, více adresátů, poštovní datové zprávy,
-  velkoobjemové zprávy nad 20 MB, koncepty sdílené mezi zařízeními.
+  velkoobjemové zprávy nad 20 MB, koncepty sdílené mezi zařízeními. Přílohy
+  se kontrolují podle pravidel ISDS už při psaní.
+- **Stav odeslaných zpráv.** Když adresát zprávu převezme, Datovka to při
+  stahování zjistí a doplní čas doručení i novou doručenku.
+- **Podezřelé zprávy** (spam) označí a jdou nahlásit správci ISDS.
 - **Ověření podpisu a časového razítka** přímo v počítači, přerazítkování
   originálu v ISDS, seznam smazaných zpráv.
 - **Štítky, poznámky, hledání** bez ohledu na diakritiku, adresář schránek
@@ -57,7 +62,9 @@ zvolíte) a zprávy se dají procházet po letech a měsících.
   a připraví je do kalendáře. Spouští se jen tlačítkem, nikdy sám, a předem
   ukáže, co se pošle ven. Připojit jde vlastní API klíč (Claude, OpenAI),
   model v počítači, nebo nic.
-- **Na iPhonu** zámek přes Face ID nebo kód telefonu a přílohy v náhledu.
+- **Automatické zálohy** celého archivu do zvolené složky (na počítači).
+- **Na telefonu** zámek přes Face ID, otisk prstu nebo kód telefonu a přílohy
+  v náhledu.
 
 ## Soukromí a bezpečnost
 
@@ -78,13 +85,13 @@ Nejnovější verze, přímo ke stažení (starší jsou u [vydání](https://gi
 | Ubuntu, Debian, Mint | [**DatovkaNG-linux-amd64.deb**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-amd64.deb) | `sudo apt install ./DatovkaNG-linux-amd64.deb` |
 | Linux na ARM (arm64) | [**DatovkaNG-linux-arm64.deb**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-arm64.deb) | `sudo apt install ./DatovkaNG-linux-arm64.deb` (od verze 1.0.3) |
 | Fedora, openSUSE, Arch a další | [**DatovkaNG-linux-x86_64.AppImage**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-x86_64.AppImage) (ARM: [aarch64](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-aarch64.AppImage)) | `chmod +x DatovkaNG-linux-*.AppImage` a spustit (od verze 1.0.5) |
-| Windows 10 a 11 | [**DatovkaNG-windows-amd64.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-windows-amd64.zip) | rozbalit a spustit `datovka-ng.exe` (zatím málo vyzkoušené) |
-| Android 7 a novější | [**DatovkaNG-android.apk**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-android.apk) | otevřít v telefonu a povolit instalaci (zkušebně) |
+| Windows 10 a 11 | [**DatovkaNG-windows-amd64.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-windows-amd64.zip) | rozbalit a spustit `datovka-ng.exe` |
+| Android 7 a novější | [**DatovkaNG-android.apk**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-android.apk) | otevřít v telefonu a povolit instalaci |
 | iPhone | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
 
 Aplikace se při startu podívá, jestli není novější vydání. Na Macu, Linuxu
-(.deb i AppImage), Windows a Androidu se umí aktualizovat sama, na Androidu
-instalaci jen potvrdíte.
+(.deb i AppImage), Windows a Androidu (od verze 1.0.5) se umí aktualizovat
+sama, na Androidu instalaci jen potvrdíte.
 
 Program se jmenuje `datovka-ng`, takže původní Datovka zůstane nainstalovaná
 vedle.
@@ -94,6 +101,8 @@ vedle.
 - [Uživatelská příručka](docs/prirucka.md)
 - [Co umí oproti původní Datovce](FEATURES.md)
 - [Architektura a formát dat](docs/architektura.md)
+- [ISDS API a co z něj používáme](docs/isds-api.md)
+- [Změny v původní Datovce 2023–2026](docs/datovka-cznic-zmeny.md)
 - [Vývoj, testy, sestavení](docs/vyvoj.md)
 
 Nápověda je i v aplikaci, odkaz je dole ve stavovém řádku.
