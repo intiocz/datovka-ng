@@ -928,7 +928,9 @@ class _UpdateStatus extends StatelessWidget {
       ),
       _Update.installed => line(
         Icon(Icons.check_circle, size: 18, color: t.ok),
-        'Verze ${info?.version} je nainstalovaná. Spusťte Datovku znovu.',
+        Platform.isAndroid
+            ? 'Potvrďte instalaci verze ${info?.version} v okně Androidu.'
+            : 'Verze ${info?.version} je nainstalovaná. Spusťte Datovku znovu.',
       ),
       _Update.newer => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
