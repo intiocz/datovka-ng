@@ -589,8 +589,10 @@ pub fn add_account(
 
 /// Removes an account section. Its message databases stay on disk.
 pub fn remove_account(dir: &Path, username: &str) -> Result<()> {
+    // A password store that cannot be reached (e.g. Linux without a keyring)
+    // holds no password of the box, so it never stops the removal.
     for a in load(dir)?.iter().filter(|a| a.username == username) {
-        super::secrets::delete(username, a.test_env)?;
+        let _ = super::secrets::delete(username, a.test_env);
     }
     let order: Vec<String> = load(dir)?
         .into_iter()

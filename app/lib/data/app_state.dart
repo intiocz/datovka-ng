@@ -1366,7 +1366,15 @@ class AppState extends ChangeNotifier {
   /// Removes a box from the configuration; its archive stays on disk.
   void removeBox(DataBox box) {
     final c = core;
-    if (c != null) c.call('account_remove', ['', box.username, c.deviceName]);
+    if (c != null) {
+      try {
+        c.call('account_remove', ['', box.username, c.deviceName]);
+      } on Object catch (e) {
+        actionError = 'Schránku ${box.name} se nepodařilo odebrat: $e';
+        notifyListeners();
+        return;
+      }
+    }
     if (boxId == box.id) boxId = null;
     if (c == null) {
       boxes = boxes.where((b) => b.id != box.id).toList();
