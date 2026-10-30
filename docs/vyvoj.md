@@ -99,8 +99,9 @@ Ten k vydání přiloží `DatovkaNG-macos.zip`, `DatovkaNG-linux-amd64.deb`,
 `DatovkaNG-linux-aarch64.AppImage`, `DatovkaNG-windows-amd64.zip`
 a `DatovkaNG-android.apk`, text vydání vezme z `docs/vydani/<značka>.md`.
 Aplikace z něj v okně aktualizace ukáže jen část *Co je nového*. Když GitHub
-nepřidělí stroj s macOS, sestaví se `DatovkaNG-macos.zip` lokálně
-(`scripts/build-macos.sh` nad obsahem značky) a vydání se založí ručně
+nepřidělí stroj s macOS, stačí job `macos` spustit znovu (Re-run failed
+jobs); s Macem jde `DatovkaNG-macos.zip` sestavit i lokálně
+(`scripts/build-macos.sh` nad obsahem značky) a vydání založit ručně
 (`gh release create … --notes-file docs/vydani/<značka>.md`). APK podepisuje klíč ze secrets
 `ANDROID_KEYSTORE_B64` a `ANDROID_KEY_PASSWORD` (originál je mimo repozitář
 v `~/.android-release/datovka-ng.jks`, heslo v Klíčence „Datovka NG Android
@@ -110,7 +111,16 @@ v `app/pubspec.yaml` a `appVersion` v `app/lib/data/updates.dart`. Aplikace
 porovná značku nejnovějšího vydání se svou verzí a nabídne aktualizaci.
 
 Každý push do `main` spustí `.github/workflows/build.yml`: testy jádra
-a aplikace na Linuxu i Windows, sestavení balíčků (.deb a AppImage pro Intel
-i ARM, zip pro Windows) a na Windows krátké spuštění aplikace se snímkem
-obrazovky (artefakt `windows-screen`).
+a aplikace na Linuxu, Windows i macOS, sestavení balíčků (.deb a AppImage pro
+Intel i ARM, zip pro Windows a Mac) a na Windows i Macu krátké spuštění
+aplikace se snímkem obrazovky (artefakty `windows-screen`, `macos-screen`).
+
+Vydat jde bez Macu, všechno sestaví GitHub:
+
+1. zvýšit `version:` v `app/pubspec.yaml` a `appVersion`
+   v `app/lib/data/updates.dart`,
+2. napsat `docs/vydani/v<verze>.md` (vzor je v předchozím vydání),
+3. pushnout do `main` a počkat, až `build` projde na všech systémech,
+4. `git tag v<verze>` a značku pushnout na GitHub
+   (`git push <remote> v<verze>`); `release` pak vydání založí sám.
 

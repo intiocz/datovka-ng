@@ -1,4 +1,4 @@
-# Tests and builds Datovka NG for Linux and Windows (GitHub Actions and Gitea Actions).
+# Tests and builds Datovka NG for Linux, Windows and macOS (GitHub Actions and Gitea Actions).
 name: build
 
 on:
@@ -82,6 +82,49 @@ jobs:
         with:
           name: DatovkaNG-linux-arm64
           path: DatovkaNG-linux-arm64.deb
+
+  # The Mac app, so a release needs no Mac at hand; GitHub only, Gitea has
+  # no macOS runner.
+  macos:
+    runs-on: macos-15
+    if: github.server_url == 'https://github.com'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Rust tests
+        run: cargo test --release
+      - name: Flutter tests
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter test
+      - name: Flutter app
+        run: scripts/build-macos.sh
+      # Starts the built app with an empty archive and fails when it does
+      # not stay up.
+      - name: Start the app
+        run: |
+          app=app/build/macos/Build/Products/Release/datovka-ng.app
+          "$app/Contents/MacOS/datovka-ng" &
+          pid=$!
+          sleep 25
+          screencapture -x macos-screen.png || true
+          kill -0 "$pid" || { echo "Aplikace skončila."; exit 1; }
+          kill "$pid"
+          ditto -c -k --keepParent "$app" DatovkaNG-macos.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-screen
+          path: macos-screen.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DatovkaNG-macos
+          path: DatovkaNG-macos.zip
 
   windows:
     runs-on: windows-latest
