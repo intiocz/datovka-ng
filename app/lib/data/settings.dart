@@ -28,6 +28,15 @@ class Settings {
   /// Light or dark look, or as the system has it.
   final ThemeMode themeMode;
 
+  /// Folder for automatic backups; empty turns them off.
+  final String backupDir;
+
+  /// Days between automatic backups.
+  final int backupDays;
+
+  /// How many automatic backups to keep; older ones are deleted.
+  final int backupKeep;
+
   /// How much [textSize] scales the text.
   double get textScale => const [0.92, 1.0, 1.08][textSize.clamp(-1, 1) + 1];
 
@@ -39,6 +48,9 @@ class Settings {
     this.fetchSentNow = true,
     this.textSize = 0,
     this.themeMode = ThemeMode.system,
+    this.backupDir = '',
+    this.backupDays = 1,
+    this.backupKeep = 7,
   });
 
   static Future<Settings> load() async {
@@ -52,6 +64,9 @@ class Settings {
       textSize: p.getInt('textSize') ?? 0,
       themeMode: ThemeMode.values.asNameMap()[p.getString('themeMode')] ??
           ThemeMode.system,
+      backupDir: p.getString('backupDir') ?? '',
+      backupDays: p.getInt('backupDays') ?? 1,
+      backupKeep: p.getInt('backupKeep') ?? 7,
     );
   }
 
@@ -64,6 +79,9 @@ class Settings {
     await p.setBool('fetchSentNow', fetchSentNow);
     await p.setInt('textSize', textSize);
     await p.setString('themeMode', themeMode.name);
+    await p.setString('backupDir', backupDir);
+    await p.setInt('backupDays', backupDays);
+    await p.setInt('backupKeep', backupKeep);
   }
 
   Settings copyWith({
@@ -74,6 +92,9 @@ class Settings {
     bool? fetchSentNow,
     int? textSize,
     ThemeMode? themeMode,
+    String? backupDir,
+    int? backupDays,
+    int? backupKeep,
   }) => Settings(
     syncMinutes: syncMinutes ?? this.syncMinutes,
     syncOnStart: syncOnStart ?? this.syncOnStart,
@@ -82,5 +103,8 @@ class Settings {
     fetchSentNow: fetchSentNow ?? this.fetchSentNow,
     textSize: textSize ?? this.textSize,
     themeMode: themeMode ?? this.themeMode,
+    backupDir: backupDir ?? this.backupDir,
+    backupDays: backupDays ?? this.backupDays,
+    backupKeep: backupKeep ?? this.backupKeep,
   );
 }

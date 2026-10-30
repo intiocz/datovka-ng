@@ -187,6 +187,19 @@ případně první schránkou s uloženým heslem.
   (velikost písma o kousek menší nebo větší, světlý nebo tmavý vzhled),
   síť (proxy), archiv, asistent, aktualizace. Na telefonu také zámek.
 
+## Automatické zálohy
+
+Na počítači v Nastavení → Archiv zvolíte složku pro zálohy, ideálně na jiném
+disku nebo síťovém úložišti, a jak často zálohovat (denně nebo týdně).
+Datovka pak sama uloží celý archiv jako jeden soubor
+`Datovka-zaloha-RRRR-MM-DD-HHMM.zip` a ponechá jen zvolený počet
+nejnovějších záloh (3 až 30). Jiné soubory ve složce nemaže. Tlačítkem
+*Zálohovat teď* zálohu uděláte hned. Obnova je v Nástrojích → Obnovit ze
+zálohy.
+
+Záloha obsahuje i hesla, která má původní Datovka uložená v `dsgui.conf`.
+Ukládejte ji tam, kam se nedostane nikdo cizí.
+
 ## Další nástroje
 
 - **Elektronická podání** (Nástroje): výpis z rejstříku trestů, insolvenčního,

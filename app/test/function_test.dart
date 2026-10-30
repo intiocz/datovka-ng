@@ -679,4 +679,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nahlásit jako podezřelou (spam)…'), findsOneWidget);
   });
+
+  testWidgets('a computer offers automatic backups in the archive settings', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    SharedPreferences.setMockInitialValues({'backupDir': '/tmp'});
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = _sample();
+    state.applySettings(await Settings.load());
+    await tester.pumpWidget(DatovkaApp(state: state));
+    showSettings(tester.element(find.byType(Scaffold).first), state);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archiv'));
+    await tester.pumpAndSettle();
+    expect(find.text('Automatická záloha'), findsOneWidget);
+    expect(find.text('/tmp'), findsOneWidget);
+    expect(find.text('7 záloh'), findsOneWidget);
+    expect(find.text('Zálohovat teď'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
 }

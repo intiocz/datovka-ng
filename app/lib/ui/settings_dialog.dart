@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart' show getDirectoryPath;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,7 @@ import '../data/data_folder.dart';
 import '../data/updates.dart';
 import '../theme.dart';
 import 'app_scope.dart';
+import 'format.dart';
 import 'app_lock.dart';
 import 'connect_assistant.dart';
 import 'release_notes.dart';
@@ -506,6 +508,105 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             'Stejnou složku může mít otevřenou telefon i několik počítačů '
             'naráz. Stahování počká, když do ní právě zapisuje jiné zařízení.',
           ),
+          if (!_mobile) ...[
+            const SizedBox(height: 20),
+            Text('Automatická záloha', style: text.titleSmall),
+            const SizedBox(height: 8),
+            _Group(
+              children: [
+                _Row(
+                  title: 'Složka pro zálohy',
+                  subtitle: _st.backupDir.isEmpty
+                      ? 'Vypnuto. Vyberte složku, třeba na jiném disku.'
+                      : _st.backupDir,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_st.backupDir.isNotEmpty)
+                        TextButton(
+                          onPressed: () => setState(
+                            () => _st = _st.copyWith(backupDir: ''),
+                          ),
+                          child: const Text('Vypnout'),
+                        ),
+                      OutlinedButton(
+                        onPressed: () async {
+                          final d = await getDirectoryPath(
+                            confirmButtonText: 'Vybrat',
+                          );
+                          if (d != null) {
+                            setState(() => _st = _st.copyWith(backupDir: d));
+                          }
+                        },
+                        child: const Text('Vybrat…'),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_st.backupDir.isNotEmpty) ...[
+                  _Row(
+                    title: 'Jak často',
+                    trailing: DropdownButton<int>(
+                      value: _st.backupDays,
+                      underline: const SizedBox(),
+                      borderRadius: BorderRadius.circular(8),
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Každý den')),
+                        DropdownMenuItem(value: 7, child: Text('Každý týden')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _st = _st.copyWith(backupDays: v)),
+                    ),
+                  ),
+                  _Row(
+                    title: 'Ponechat',
+                    subtitle: 'Starší zálohy se smažou.',
+                    trailing: DropdownButton<int>(
+                      value: _st.backupKeep,
+                      underline: const SizedBox(),
+                      borderRadius: BorderRadius.circular(8),
+                      items: [
+                        for (final n in const [3, 5, 7, 14, 30])
+                          DropdownMenuItem(
+                            value: n,
+                            child: Text('$n záloh'),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _st = _st.copyWith(backupKeep: v)),
+                    ),
+                  ),
+                  _Row(
+                    title: 'Poslední záloha',
+                    subtitle: s.backupError != null
+                        ? 'Nepovedla se: ${s.backupError}'
+                        : s.lastBackup == null
+                        ? 'Zatím žádná'
+                        : '${dayDate(s.lastBackup!)} '
+                              '${s.lastBackup!.hour}:${s.lastBackup!.minute.toString().padLeft(2, '0')}',
+                    trailing: OutlinedButton(
+                      onPressed: s.backingUp
+                          ? null
+                          : () async {
+                              final msg = await s.backupNow(_st);
+                              if (!context.mounted || msg.isEmpty) return;
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg)),
+                              );
+                            },
+                      child: Text(s.backingUp ? 'Zálohuji…' : 'Zálohovat teď'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const _Note(
+              'Záloha je jeden soubor ZIP s celým archivem včetně uložených '
+              'hesel původní Datovky. Ukládejte ji tam, kam se nedostane nikdo '
+              'cizí. Obnovíte ji v Nástrojích.',
+            ),
+          ],
         ];
       case _Page.assistant:
         return [

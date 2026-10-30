@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'archive_location.dart';
+import 'auto_backup.dart';
 import 'core_bridge.dart';
 import 'data_folder.dart';
 import 'mailbox.dart';
@@ -140,13 +142,85 @@ class AppState extends ChangeNotifier {
         (_) => runSync(),
       );
     }
+    _scheduleBackups(st);
     notifyListeners();
+  }
+
+  // Automatic backups.
+
+  Timer? _backupTimer;
+
+  /// Time of the last automatic backup on this device.
+  DateTime? lastBackup;
+
+  /// Why the last automatic backup failed; null after a good one.
+  String? backupError;
+
+  bool backingUp = false;
+
+  void _scheduleBackups(Settings st) {
+    _backupTimer?.cancel();
+    _backupTimer = null;
+    if (st.backupDir.isEmpty) return;
+    SharedPreferences.getInstance().then((p) {
+      lastBackup = DateTime.tryParse(p.getString('lastBackup') ?? '');
+      // Shortly after start, then every hour whether one is due.
+      Future<void>.delayed(const Duration(seconds: 30), _backupIfDue);
+      _backupTimer = Timer.periodic(
+        const Duration(hours: 1),
+        (_) => _backupIfDue(),
+      );
+    });
+  }
+
+  Future<void> _backupIfDue() async {
+    final st = settings;
+    if (_disposed || st.backupDir.isEmpty) return;
+    if (!autoBackupDue(lastBackup, st.backupDays, DateTime.now())) return;
+    await backupNow();
+  }
+
+  /// Makes an automatic backup now and deletes the oldest beyond the
+  /// number to keep; [using] are settings not saved yet. Returns what
+  /// happened, in Czech.
+  Future<String> backupNow([Settings? using]) async {
+    final c = core;
+    final st = using ?? settings;
+    if (c == null || st.backupDir.isEmpty || backingUp) return '';
+    backingUp = true;
+    notifyListeners();
+    try {
+      final dir = Directory(st.backupDir);
+      if (!dir.existsSync()) {
+        throw UserError('Složka pro zálohy ${st.backupDir} neexistuje.');
+      }
+      final now = DateTime.now();
+      final target = '${dir.path}${Platform.pathSeparator}${autoBackupName(now)}';
+      await c.callAsync('backup', ['', target]);
+      for (final old in surplusBackups(dir, st.backupKeep)) {
+        old.deleteSync();
+      }
+      lastBackup = now;
+      backupError = null;
+      (await SharedPreferences.getInstance()).setString(
+        'lastBackup',
+        now.toIso8601String(),
+      );
+      return 'Záloha uložena: $target';
+    } on Object catch (e) {
+      backupError = '$e';
+      return 'Záloha se nepovedla: $e';
+    } finally {
+      backingUp = false;
+      if (!_disposed) notifyListeners();
+    }
   }
 
   @override
   void dispose() {
     _disposed = true;
     appearance.dispose();
+    _backupTimer?.cancel();
     _timer?.cancel();
     _searchTimer?.cancel();
     searchFocus.dispose();
