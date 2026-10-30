@@ -1,7 +1,7 @@
 # Datovka NG – uživatelská příručka
 
 Datovka NG je klient datových schránek (ISDS) pro macOS, Windows 10 a novější,
-Linux (Ubuntu, Debian, Mint; Intel i ARM), iPhone a Android. Pracuje se stejnými daty jako původní Datovka od CZ.NIC, takže po
+Linux (Ubuntu, Debian, Mint; Intel i ARM), iPhone, iPad a Android. Pracuje se stejnými daty jako původní Datovka od CZ.NIC, takže po
 spuštění vidíte své schránky, uložená hesla a historii zpráv. Do obchodů se
 zatím nedává. Nové verze se berou z balíčků na GitHubu.
 
@@ -272,7 +272,9 @@ Balíčky jsou u [vydání na GitHubu](https://github.com/intiocz/datovka-ng/rel
 - **iPhone/iPad**: v App Store není, sestavuje se přes `scripts/build-ios.sh`
   a podepisuje v Xcode vlastním Apple ID. Při prvním spuštění vyberete
   v Souborech složku iCloud Drive → Datovka archiv (stejnou jako na Macu).
-  Přílohy se otevírají v náhledu, odkud je sdílíte nebo uložíte.
+  Přílohy se otevírají v náhledu, odkud je sdílíte nebo uložíte. Na iPadu
+  na šířku jsou vedle sebe schránky, seznam a zpráva jako na Macu; na výšku
+  seznam a zpráva, schránky jsou v menu ☰.
 
 Na telefonu lze v Nastavení → Zámek zapnout zamykání přes Face ID, otisk
 prstu nebo kód telefonu, při spuštění a po návratu do aplikace.

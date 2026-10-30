@@ -122,6 +122,7 @@ na testovací prostředí.
 | Linux | 🧪 `DatovkaNG-linux-amd64.deb` a `-arm64.deb` z vydání; arm64 vyzkoušený v Ubuntu 24.04 ve virtuálu, amd64 jen v CI |
 | Linux (ostatní distribuce) | 🧪 `DatovkaNG-linux-x86_64.AppImage` a `aarch64`, aktualizuje se sám přepsáním souboru |
 | iOS | 🧪 běží na iPhonu nad archivem z iCloud Drive; podepisuje se v Xcode, v App Store není |
+| iPadOS | 🧪 stejná aplikace jako pro iPhone; na šířku tři panely jako na Macu, na výšku seznam a zpráva vedle sebe; vyzkoušeno v simulátoru (mini, 11″, 13″) |
 | Android | 🧪 podepsané `DatovkaNG-android.apk` z vydání (arm64); archiv se přenáší zálohou ZIP, iCloud na Androidu není; aktualizace se stáhne a předá systémovému instalátoru |
 
 ## Chování

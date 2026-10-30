@@ -177,38 +177,58 @@ class _Toolbar extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back),
             ),
-          const Spacer(),
-          if (m.direction == Direction.received)
-            FilledButton.icon(
-              onPressed: () => showCompose(context, Draft.reply(m)),
-              icon: const Icon(Icons.reply, size: 18),
-              label: const Text('Odpovědět'),
-              style: FilledButton.styleFrom(backgroundColor: t.accent),
+          // A narrow detail (an iPad pane, larger text) scrolls the buttons
+          // rather than overflowing.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (m.direction == Direction.received)
+                      FilledButton.icon(
+                        onPressed: () => showCompose(context, Draft.reply(m)),
+                        icon: const Icon(Icons.reply, size: 18),
+                        label: const Text('Odpovědět'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: t.accent,
+                        ),
+                      ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: m.isRead
+                          ? 'Označit jako nepřečtené'
+                          : 'Označit jako přečtené',
+                      onPressed: () => s.toggleRead(m.dmId),
+                      icon: Icon(
+                        m.isRead
+                            ? Icons.mark_email_unread_outlined
+                            : Icons.mark_email_read_outlined,
+                        color: t.inkMuted,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Uložit podepsanou zprávu (ZFO)',
+                      onPressed: () => saveSignedFile(context, m),
+                      icon: Icon(
+                        Icons.file_download_outlined,
+                        color: t.inkMuted,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Vytisknout nebo uložit obálku do PDF',
+                      onPressed: () => printEnvelope(context, m),
+                      icon: Icon(Icons.print_outlined, color: t.inkMuted),
+                    ),
+                    MessageActions(m: m),
+                  ],
+                ),
+              ),
             ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: m.isRead
-                ? 'Označit jako nepřečtené'
-                : 'Označit jako přečtené',
-            onPressed: () => s.toggleRead(m.dmId),
-            icon: Icon(
-              m.isRead
-                  ? Icons.mark_email_unread_outlined
-                  : Icons.mark_email_read_outlined,
-              color: t.inkMuted,
-            ),
           ),
-          IconButton(
-            tooltip: 'Uložit podepsanou zprávu (ZFO)',
-            onPressed: () => saveSignedFile(context, m),
-            icon: Icon(Icons.file_download_outlined, color: t.inkMuted),
-          ),
-          IconButton(
-            tooltip: 'Vytisknout nebo uložit obálku do PDF',
-            onPressed: () => printEnvelope(context, m),
-            icon: Icon(Icons.print_outlined, color: t.inkMuted),
-          ),
-          MessageActions(m: m),
         ],
       ),
     );
@@ -378,8 +398,13 @@ class _DeadlineSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('Lhůta do ${dayDate(m.deadline!)}', style: text.titleMedium),
-            const Spacer(),
+            Expanded(
+              child: Text(
+                'Lhůta do ${dayDate(m.deadline!)}',
+                style: text.titleMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             TextButton(onPressed: pick, child: const Text('Změnit')),
             TextButton(
               onPressed: () => s.setDeadline(m.dmId, null),

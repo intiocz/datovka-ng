@@ -13,11 +13,17 @@ import 'message_list.dart';
 import 'sidebar.dart';
 import 'status_bar.dart';
 
-/// Three panes on wide screens; list with drawer and pushed detail on narrow ones.
+/// Three panes on wide screens; list and detail side by side on a tablet held
+/// upright; list with drawer and pushed detail on narrow ones. The sidebar of
+/// the last two is in the drawer.
 class Home extends StatelessWidget {
   const Home({super.key});
 
   static const wide = 980.0;
+
+  /// List and detail fit side by side from here, on a screen tall enough not
+  /// to be a phone on its side.
+  static const medium = 700.0;
 
   @override
   Widget build(BuildContext context) {
@@ -26,56 +32,77 @@ class Home extends StatelessWidget {
     return _Keys(
       state: s,
       child: LayoutBuilder(
-      builder: (context, c) {
-        if (c.maxWidth >= wide) {
-          return const Scaffold(
-            bottomNavigationBar: StatusBar(),
-            body: _WidePanes(),
-          );
-        }
-        return Scaffold(
-          bottomNavigationBar: const StatusBar(),
-          drawer: Drawer(
-            width: 290,
-            shape: const RoundedRectangleBorder(),
-            child: Builder(
-              builder: (ctx) =>
-                  Sidebar(onPicked: () => Navigator.of(ctx).pop()),
+        builder: (context, c) {
+          if (c.maxWidth >= wide) {
+            return const Scaffold(
+              bottomNavigationBar: StatusBar(),
+              body: _WidePanes(),
+            );
+          }
+          return Scaffold(
+            bottomNavigationBar: const StatusBar(),
+            drawer: Drawer(
+              width: 290,
+              shape: const RoundedRectangleBorder(),
+              child: Builder(
+                builder: (ctx) =>
+                    Sidebar(onPicked: () => Navigator.of(ctx).pop()),
+              ),
             ),
-          ),
-          body: Builder(
-            builder: (ctx) {
-              final menu = IconButton(
-                tooltip: 'Schránky a složky',
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(ctx).openDrawer(),
-              );
-              if (s.view == Screen.directory) {
-                return DirectoryView(leading: menu);
-              }
-              return MessageList(
-                leading: menu,
-                onOpen: (m) {
-                  s.open(m.dmId);
-                  Navigator.of(ctx).push(
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        body: ListenableBuilder(
-                          listenable: s,
-                          builder: (_, _) {
-                            final cur = s.selected ?? m;
-                            return MessageDetail(m: cur, showBack: true);
-                          },
+            body: Builder(
+              builder: (ctx) {
+                final menu = IconButton(
+                  tooltip: 'Schránky a složky',
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                );
+                if (s.view == Screen.directory) {
+                  return DirectoryView(leading: menu);
+                }
+                if (c.maxWidth >= medium && c.maxHeight >= 560) {
+                  final t = Tokens.of(ctx);
+                  final m = s.selected;
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: c.maxWidth >= 900 ? 380 : 340,
+                        child: MessageList(
+                          leading: menu,
+                          onOpen: (m) => s.open(m.dmId),
                         ),
                       ),
-                    ),
+                      VerticalDivider(width: 1, color: t.line),
+                      Expanded(
+                        child: m == null
+                            ? const NoSelection()
+                            : MessageDetail(key: ValueKey(m.dmId), m: m),
+                      ),
+                    ],
                   );
-                },
-              );
-            },
-          ),
-        );
-      },
+                }
+                return MessageList(
+                  leading: menu,
+                  onOpen: (m) {
+                    s.open(m.dmId);
+                    Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          body: ListenableBuilder(
+                            listenable: s,
+                            builder: (_, _) {
+                              final cur = s.selected ?? m;
+                              return MessageDetail(m: cur, showBack: true);
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }

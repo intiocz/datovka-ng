@@ -69,21 +69,30 @@ class DeadlineBar extends StatelessWidget {
       ),
     );
     if (!showLabel) return bar;
-    return Row(
-      children: [
-        Expanded(child: bar),
-        const SizedBox(width: 10),
-        Text(
-          deadlineText(end),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: tone == DeadlineTone.calm ? t.inkMuted : color,
-            fontWeight: tone == DeadlineTone.calm
-                ? FontWeight.w500
-                : FontWeight.w700,
-            fontFeatures: tabular,
+    // The label keeps at most two thirds, so a narrow list or larger text
+    // shortens it instead of overflowing.
+    return LayoutBuilder(
+      builder: (context, c) => Row(
+        children: [
+          Expanded(child: bar),
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: c.maxWidth * 2 / 3),
+            child: Text(
+              deadlineText(end),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: tone == DeadlineTone.calm ? t.inkMuted : color,
+                fontWeight: tone == DeadlineTone.calm
+                    ? FontWeight.w500
+                    : FontWeight.w700,
+                fontFeatures: tabular,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

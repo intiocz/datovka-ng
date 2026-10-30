@@ -8,7 +8,7 @@
 <h1 align="center">Datovka NG</h1>
 
 <p align="center">
-  Klient datových schránek (ISDS) pro Mac, iPhone, Android, Linux a Windows.<br>
+  Klient datových schránek (ISDS) pro Mac, iPhone, iPad, Android, Linux a Windows.<br>
   Pracuje se stejným archivem jako původní Datovka, jen je rychlejší a přehlednější.
 </p>
 
@@ -87,7 +87,7 @@ Nejnovější verze, přímo ke stažení (starší jsou u [vydání](https://gi
 | Fedora, openSUSE, Arch a další | [**DatovkaNG-linux-x86_64.AppImage**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-x86_64.AppImage) (ARM: [aarch64](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-aarch64.AppImage)) | `chmod +x DatovkaNG-linux-*.AppImage` a spustit (od verze 1.0.5) |
 | Windows 10 a 11 | [**DatovkaNG-windows-amd64.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-windows-amd64.zip) | rozbalit a spustit `datovka-ng.exe` |
 | Android 7 a novější | [**DatovkaNG-android.apk**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-android.apk) | otevřít v telefonu a povolit instalaci |
-| iPhone | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
+| iPhone a iPad | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
 
 Aplikace se při startu podívá, jestli není novější vydání. Na Macu, Linuxu
 (.deb i AppImage), Windows a Androidu (od verze 1.0.5) se umí aktualizovat
