@@ -18,6 +18,7 @@ na testovací prostředí.
 | Přidání a odebrání schránky | ✅ | zápis do `dsgui.conf` |
 | Jméno a heslo | ✅ | |
 | Mobilní klíč | ✅ | jen na pokyn uživatele, bez opakovaných upozornění |
+| Udržování přihlášení (SMS, kód, mobilní klíč) | 🧪 | každých 25 minut `DummyOperation` jako originál od 4.25; nic nedoručí; Nastavení → Stahování |
 | Heslo + SMS kód | 🧪 | `type=totp` |
 | Heslo + kód z aplikace (HOTP) | 🧪 | `type=hotp`; ISDS ho ruší, nově se nenabízí, stávající schránky upozorní |
 | Certifikát, certifikát + heslo | 🧪 | PKCS#12, `ws1c` `certds/`/`hspis/`; ne na Androidu |

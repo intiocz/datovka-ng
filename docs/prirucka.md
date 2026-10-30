@@ -90,6 +90,13 @@ nikdy nepřihlašují. Když jim vyprší přihlášení, objeví se nad sezname
 pruh s tlačítkem *Přihlásit*. Aplikace sama neotevírá okna, nebere fokus
 a neposílá opakovaná upozornění.
 
+Jednou přihlášená schránka zůstane přihlášená, dokud Datovka běží: ISDS
+přihlášení ukončí po 30 minutách bez požadavku, a tak se Datovka každých
+25 minut krátce ozve (stejně jako původní Datovka). Tenhle požadavek nic
+nedoručí. Vypnout jde v Nastavení → Stahování (*Udržovat přihlášení*).
+Telefon na pozadí se neozývá; po návratu do aplikace se hned ověří, jestli
+přihlášení ještě platí.
+
 Zprávu odeslanou z Datovky ISDS obvykle během několika vteřin dodá do
 schránky adresáta. Teprve pak se dá stáhnout. Datovka se proto po odeslání
 několikrát krátce po sobě podívá do ISDS a zprávu stáhne do Odeslaných,

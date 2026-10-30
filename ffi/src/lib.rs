@@ -668,6 +668,28 @@ pub extern "C" fn dk_logout(username: *const c_char) -> *mut c_char {
     })())
 }
 
+/// Keeps the interactive session of `username` alive (`DummyOperation`,
+/// which delivers nothing). `{"alive": false, "expired": true}` when ISDS
+/// ended it: the session is forgotten, as after logging out. A network
+/// failure keeps the session; the next call will tell.
+#[no_mangle]
+pub extern "C" fn dk_keep_alive(username: *const c_char) -> *mut c_char {
+    respond((|| {
+        let username = arg(username)?;
+        let Some(c) = sessions().lock().unwrap().get(&username).cloned() else {
+            return Ok(json!({"alive": false, "expired": true}));
+        };
+        match block_on(c.keep_alive())? {
+            Ok(()) => Ok(json!({"alive": true, "expired": false})),
+            Err(datovka_core::Error::Unauthorized) => {
+                sessions().lock().unwrap().remove(&username);
+                Ok(json!({"alive": false, "expired": true}))
+            }
+            Err(_) => Ok(json!({"alive": false, "expired": false})),
+        }
+    })())
+}
+
 /// Usernames with a live interactive session.
 #[no_mangle]
 pub extern "C" fn dk_sessions() -> *mut c_char {

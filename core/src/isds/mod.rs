@@ -409,7 +409,7 @@ fn http_client(cookies: bool) -> Result<reqwest::Client> {
 
 /// Operations that only read or mark as read, so asking twice does no harm.
 fn safe_to_repeat(op: &str) -> bool {
-    ["Get", "MessageDownload", "MessageEnvelopeDownload", "Find", "ISDSSearch", "Check", "PDZInfo", "PDZSendInfo", "DataBoxCreditInfo", "MarkMessageAs", "PickUp", "Authenticate", "Verify", "SignedMessage", "SignedSent"]
+    ["Get", "DummyOperation", "MessageDownload", "MessageEnvelopeDownload", "Find", "ISDSSearch", "Check", "PDZInfo", "PDZSendInfo", "DataBoxCreditInfo", "MarkMessageAs", "PickUp", "Authenticate", "Verify", "SignedMessage", "SignedSent"]
         .iter()
         .any(|p| op.starts_with(p))
 }

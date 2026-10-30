@@ -343,6 +343,18 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ),
               ),
               _Row(
+                title: 'Udržovat přihlášení',
+                subtitle:
+                    'Schránky se SMS, kódem nebo mobilním klíčem zůstanou '
+                    'přihlášené, dokud Datovka běží. Každých 25 minut se ozve '
+                    'ISDS, nic se tím nedoručí.',
+                trailing: Switch(
+                  value: _st.keepSessions,
+                  onChanged: (v) =>
+                      setState(() => _st = _st.copyWith(keepSessions: v)),
+                ),
+              ),
+              _Row(
                 title: 'Označovat přečtení i v ISDS',
                 subtitle: 'Otevřená zpráva bude přečtená i na portálu datových schránek.',
                 trailing: Switch(

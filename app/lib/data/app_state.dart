@@ -11,6 +11,7 @@ import 'core_bridge.dart';
 import 'data_folder.dart';
 import 'mailbox.dart';
 import 'models.dart';
+import 'session_keeper.dart';
 import 'settings.dart';
 import 'user_error.dart';
 
@@ -143,6 +144,7 @@ class AppState extends ChangeNotifier {
       );
     }
     _scheduleBackups(st);
+    _keepSessions(st.keepSessions);
     notifyListeners();
   }
 
@@ -216,9 +218,37 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  SessionKeeper? _keeper;
+
+  void _keepSessions(bool on) {
+    final c = core;
+    if (!on || c == null) {
+      _keeper?.stop();
+      _keeper = null;
+      return;
+    }
+    _keeper ??= SessionKeeper(
+      ping: (user) async {
+        final r = await c.callAsync('keep_alive', [user]) as Map;
+        if (r['expired'] == true) return false;
+        return r['alive'] == true ? true : null;
+      },
+      boxes: () => boxes,
+      expired: (b) {
+        if (_disposed) return;
+        boxes = [
+          for (final x in boxes)
+            x.id == b.id ? x.copyWith(session: Session.expired) : x,
+        ];
+        notifyListeners();
+      },
+    )..start();
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    _keeper?.stop();
     appearance.dispose();
     _backupTimer?.cancel();
     _timer?.cancel();

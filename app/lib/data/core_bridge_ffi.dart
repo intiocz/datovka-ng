@@ -108,6 +108,7 @@ class CoreBridge {
         >(symbol)(a[0] as _Str, a[1] as _Str);
       case 'dk_login_mep_poll' ||
           'dk_logout' ||
+          'dk_keep_alive' ||
           'dk_set_proxy' ||
           'dk_secret_get':
         return _lib.lookupFunction<_Str Function(_Str), _Str Function(_Str)>(

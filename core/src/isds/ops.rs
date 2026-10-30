@@ -376,6 +376,14 @@ impl Client {
             .await
     }
 
+    /// Keeps a cookie session (SMS, code from an app, mobile key) alive: ISDS
+    /// ends it after 30 minutes without a request. `DummyOperation` does
+    /// nothing and, unlike the list of received messages, delivers nothing.
+    pub async fn keep_alive(&self) -> Result<()> {
+        self.call(Service::Dz, "DummyOperation", "").await?;
+        Ok(())
+    }
+
     /// Reports a received message as suspicious (spam) to the ISDS operator
     /// (`SuspMessageReport`). Without `allow_complete` the operator cannot
     /// download the message and will likely set the report aside.

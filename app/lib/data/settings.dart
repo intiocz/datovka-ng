@@ -22,6 +22,10 @@ class Settings {
   /// delivered and downloaded, instead of waiting for the next download.
   final bool fetchSentNow;
 
+  /// Keep logins with SMS, a code or the mobile key alive while the app
+  /// runs (see SessionKeeper).
+  final bool keepSessions;
+
   /// Text size: -1 a little smaller, 0 as designed, 1 a little larger.
   final int textSize;
 
@@ -46,6 +50,7 @@ class Settings {
     this.markReadInIsds = false,
     this.proxy = '',
     this.fetchSentNow = true,
+    this.keepSessions = true,
     this.textSize = 0,
     this.themeMode = ThemeMode.system,
     this.backupDir = '',
@@ -61,6 +66,7 @@ class Settings {
       markReadInIsds: p.getBool('markReadInIsds') ?? false,
       proxy: p.getString('proxy') ?? '',
       fetchSentNow: p.getBool('fetchSentNow') ?? true,
+      keepSessions: p.getBool('keepSessions') ?? true,
       textSize: p.getInt('textSize') ?? 0,
       themeMode: ThemeMode.values.asNameMap()[p.getString('themeMode')] ??
           ThemeMode.system,
@@ -77,6 +83,7 @@ class Settings {
     await p.setBool('markReadInIsds', markReadInIsds);
     await p.setString('proxy', proxy);
     await p.setBool('fetchSentNow', fetchSentNow);
+    await p.setBool('keepSessions', keepSessions);
     await p.setInt('textSize', textSize);
     await p.setString('themeMode', themeMode.name);
     await p.setString('backupDir', backupDir);
@@ -90,6 +97,7 @@ class Settings {
     bool? markReadInIsds,
     String? proxy,
     bool? fetchSentNow,
+    bool? keepSessions,
     int? textSize,
     ThemeMode? themeMode,
     String? backupDir,
@@ -101,6 +109,7 @@ class Settings {
     markReadInIsds: markReadInIsds ?? this.markReadInIsds,
     proxy: proxy ?? this.proxy,
     fetchSentNow: fetchSentNow ?? this.fetchSentNow,
+    keepSessions: keepSessions ?? this.keepSessions,
     textSize: textSize ?? this.textSize,
     themeMode: themeMode ?? this.themeMode,
     backupDir: backupDir ?? this.backupDir,

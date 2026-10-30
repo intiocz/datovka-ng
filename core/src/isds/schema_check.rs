@@ -150,6 +150,7 @@ async fn record_all(base: &str) {
     let _ = c.download_sent("123").await;
     let _ = c.download_delivery_info("123").await;
     let _ = c.mark_as_read("123").await;
+    let _ = c.keep_alive().await;
     let _ = c.message_author("123").await;
     let _ = c.erase_message("123", true).await;
     let _ = c.report_suspicious("123", true, "nevyžádaná reklama").await;
