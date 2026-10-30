@@ -682,7 +682,8 @@ class _ComposeState extends State<_Compose> {
               i == 0 ? Icons.description : Icons.attach_file,
               color: t.inkMuted,
             ),
-            title: Text(f.name),
+            // XFile.name splits only on this system's separator.
+            title: Text(f.path.split(RegExp(r'[\\/]')).last),
             subtitle: i == 0
                 ? Text('Hlavní dokument', style: text.bodySmall)
                 : null,
