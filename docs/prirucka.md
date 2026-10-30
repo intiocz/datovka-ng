@@ -244,7 +244,13 @@ Balíčky jsou u [vydání na GitHubu](https://github.com/intiocz/datovka-ng/rel
   s procesorem ARM `DatovkaNG-linux-arm64.deb`. Hesla jdou do systémové
   klíčenky. Kdo se přihlašuje automaticky, nemá ji ještě založenou: při prvním
   uložení hesla se systém zeptá na heslo k nové klíčence.
+  Na ostatních distribucích (Fedora, openSUSE, Arch…) stačí
+  `DatovkaNG-linux-x86_64.AppImage` (ARM: `aarch64`): jeden soubor, který
+  stačí označit jako spustitelný (`chmod +x`) a spustit. Potřebuje jen GTK 3,
+  které mají všechna běžná prostředí.
 - **Android**: `DatovkaNG-android.apk` otevřete v telefonu a povolte instalaci.
+  Další verze si Datovka stáhne sama a Android jen požádá o potvrzení
+  instalace (poprvé o svolení instalovat aplikace z Datovky NG).
   Na Androidu není iCloud, archiv se přenáší zálohou ZIP (Nástroje → Záloha
   na počítači, Obnovit ze zálohy v telefonu).
 - **iPhone/iPad**: v App Store není, sestavuje se přes `scripts/build-ios.sh`
@@ -255,8 +261,10 @@ Balíčky jsou u [vydání na GitHubu](https://github.com/intiocz/datovka-ng/rel
 Na telefonu lze v Nastavení → Zámek zapnout zamykání přes Face ID, otisk
 prstu nebo kód telefonu, při spuštění a po návratu do aplikace.
 
-Na Macu, Windows a Linuxu se aplikace při startu podívá, jestli není novější
-verze, a nabídne ji i se seznamem změn. Po potvrzení se sama nainstaluje.
+Na Macu, Windows, Linuxu a Androidu se aplikace při startu podívá, jestli
+není novější verze, a nabídne ji i se seznamem změn. Po potvrzení se sama
+nainstaluje (AppImage se přepíše novou verzí, na Androidu instalaci
+potvrdíte v systémovém okně).
 Ručně to zkontrolujete kliknutím na číslo verze ve stavovém řádku.
 
 ## AI asistent

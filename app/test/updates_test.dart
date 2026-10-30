@@ -67,4 +67,36 @@ Ručně ji stáhnete z tabulky níže.
     expect(args.last, r'C:\Temp\datovka-ng-instaluj.ps1');
     expect(i, lessThan(args.indexOf('-File')));
   });
+
+  test('Android takes the APK, an AppImage its own processor, .deb stays', () {
+    const names = [
+      'DatovkaNG-macos.zip',
+      'DatovkaNG-linux-amd64.deb',
+      'DatovkaNG-linux-arm64.deb',
+      'DatovkaNG-linux-x86_64.AppImage',
+      'DatovkaNG-linux-aarch64.AppImage',
+      'DatovkaNG-windows-amd64.zip',
+      'DatovkaNG-android.apk',
+    ];
+    expect(releaseAssetName(names, platform: 'android'), 'DatovkaNG-android.apk');
+    expect(
+      releaseAssetName(names, platform: 'appimage-x86_64'),
+      'DatovkaNG-linux-x86_64.AppImage',
+    );
+    expect(
+      releaseAssetName(names, platform: 'appimage-aarch64'),
+      'DatovkaNG-linux-aarch64.AppImage',
+    );
+    expect(releaseAssetName(names, platform: 'linux'), 'DatovkaNG-linux-amd64.deb');
+    expect(
+      releaseAssetName(names, platform: 'linux-arm64'),
+      'DatovkaNG-linux-arm64.deb',
+    );
+    // An older release without an AppImage offers nothing to replace it with.
+    expect(
+      releaseAssetName(['DatovkaNG-linux-amd64.deb'], platform: 'appimage-x86_64'),
+      isNull,
+    );
+    expect(releaseAssetName(['x.zip'], platform: 'android'), isNull);
+  });
 }

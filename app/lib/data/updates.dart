@@ -17,6 +17,7 @@ bool checkUpdatesOnStart = true;
 
 const _repoKey = 'releaseRepo';
 const _channel = MethodChannel('cz.datovka/folder');
+const _android = MethodChannel('cz.datovka/android');
 
 /// `vlastník/název` repozitáře, ze kterého se berou balíčky.
 /// Stejný strom je na GitHubu a v Gitea. Kontrola vydání jde na GitHub.
@@ -157,6 +158,10 @@ const macReleaseAsset = 'DatovkaNG-macos.zip';
 const linuxReleaseAsset = 'DatovkaNG-linux-amd64.deb';
 const linuxArmReleaseAsset = 'DatovkaNG-linux-arm64.deb';
 const windowsReleaseAsset = 'DatovkaNG-windows-amd64.zip';
+const androidReleaseAsset = 'DatovkaNG-android.apk';
+
+/// AppImage for this processor (`x86_64` or `aarch64`).
+String appImageAsset(String arch) => 'DatovkaNG-linux-$arch.AppImage';
 
 /// Název balíčku z vydání pro tento systém. Napřed přesný název, pak záloha.
 String? releaseAssetName(Iterable<String> names, {required String platform}) {
@@ -177,6 +182,17 @@ String? releaseAssetName(Iterable<String> names, {required String platform}) {
   if (platform == 'linux-arm64') {
     if (list.contains(linuxArmReleaseAsset)) return linuxArmReleaseAsset;
   }
+  // Run from an AppImage, the update is an AppImage of the same processor.
+  if (platform.startsWith('appimage-')) {
+    final name = appImageAsset(platform.substring('appimage-'.length));
+    if (list.contains(name)) return name;
+  }
+  if (platform == 'android') {
+    if (list.contains(androidReleaseAsset)) return androidReleaseAsset;
+    for (final n in list) {
+      if (n.endsWith('.apk')) return n;
+    }
+  }
   if (platform == 'windows') {
     if (list.contains(windowsReleaseAsset)) return windowsReleaseAsset;
     for (final n in list) {
@@ -186,17 +202,28 @@ String? releaseAssetName(Iterable<String> names, {required String platform}) {
   return null;
 }
 
+/// Path of the AppImage this app runs from, null for other installs.
+String? get _appImage {
+  final p = Platform.environment['APPIMAGE'];
+  return p != null && p.isNotEmpty ? p : null;
+}
+
 String? _wantedAsset(List assets) {
   final names = [
     for (final a in assets)
       if (a is Map && a['name'] is String) a['name'] as String,
   ];
+  final arm = Abi.current() == Abi.linuxArm64;
   final platform = Platform.isMacOS
       ? 'macos'
+      : Platform.isLinux && _appImage != null
+      ? (arm ? 'appimage-aarch64' : 'appimage-x86_64')
       : Platform.isLinux
-      ? (Abi.current() == Abi.linuxArm64 ? 'linux-arm64' : 'linux')
+      ? (arm ? 'linux-arm64' : 'linux')
       : Platform.isWindows
       ? 'windows'
+      : Platform.isAndroid
+      ? 'android'
       : '';
   if (platform.isEmpty) return null;
   return releaseAssetName(names, platform: platform);
@@ -206,6 +233,7 @@ String? _wantedAsset(List assets) {
 /// the newest. Throws [UserError] when there is nothing to ask or GitHub
 /// cannot be reached, so that is never mistaken for "up to date".
 Future<ReleaseInfo?> newerRelease() async {
+  removeUpdateLeftovers();
   final repo = await ReleaseSource.repo();
   if (!repo.contains('/')) {
     throw UserError('Aktualizace nejsou zapnuté. Níže uveďte repozitář na GitHubu.');
@@ -311,8 +339,9 @@ Future<void> offerUpdate(BuildContext context) async {
   }
 }
 
-/// Downloads and installs [info]. On a Mac and Windows the app quits and
-/// starts again as the new version; errors are thrown as [UserError].
+/// Downloads and installs [info]. On a Mac, Windows and from an AppImage the
+/// app quits and starts again as the new version; on Android the system asks
+/// to confirm the installation. Errors are thrown as [UserError].
 Future<void> installRelease(ReleaseInfo info) async {
   final file = File('${Directory.systemTemp.path}/${info.assetName}');
   final client = HttpClient();
@@ -325,7 +354,13 @@ Future<void> installRelease(ReleaseInfo info) async {
     }
     final sink = file.openWrite();
     await res.pipe(sink);
-    if (Platform.isMacOS) {
+    if (Platform.isAndroid && file.path.endsWith('.apk')) {
+      await _installApk(file);
+    } else if (Platform.isLinux &&
+        file.path.endsWith('.AppImage') &&
+        _appImage != null) {
+      await _installAppImage(file, _appImage!);
+    } else if (Platform.isMacOS) {
       await _installMac(file);
     } else if (Platform.isWindows &&
         file.path.toLowerCase().endsWith('.zip')) {
@@ -426,6 +461,62 @@ List<String> windowsInstallerArgs(String script) => [
 ];
 
 String _ps(String s) => "'${s.replaceAll("'", "''")}'";
+
+/// Hands the APK to the Android installer. Android itself refuses a package
+/// signed with another key, so only our own build can replace this app.
+Future<void> _installApk(File apk) async {
+  final r = await _android.invokeMethod<String>('installApk', apk.path);
+  switch (r) {
+    case 'started':
+      return;
+    case 'permission':
+      throw UserError(
+        'Android potřebuje svolení, aby Datovka NG mohla instalovat '
+        'aplikace. V otevřeném nastavení ho zapněte a pak klikněte na '
+        'Aktualizovat znovu.',
+      );
+    case 'foreign':
+      if (apk.existsSync()) apk.deleteSync();
+      throw UserError('Stažený balíček není Datovka NG, instalace se zrušila.');
+    default:
+      throw UserError('Instalaci se nepodařilo spustit.');
+  }
+}
+
+/// Puts the new AppImage in place of the running one and starts it.
+Future<void> _installAppImage(File download, String target) async {
+  // Next to the old file, so the rename stays on one disk and is atomic.
+  final next = File('$target.nova');
+  try {
+    await download.copy(next.path);
+    await download.delete();
+    final chmod = await Process.run('chmod', ['+x', next.path]);
+    if (chmod.exitCode != 0) {
+      throw UserError('Nová verze nejde nastavit jako spustitelná.');
+    }
+    await next.rename(target);
+  } on FileSystemException {
+    if (next.existsSync()) next.deleteSync();
+    throw UserError(
+      'Soubor $target nejde přepsat. Stáhněte novou verzi ručně, '
+      'nebo AppImage přesuňte do své složky.',
+    );
+  }
+  await Process.start(target, const [], mode: ProcessStartMode.detached);
+  exit(0);
+}
+
+/// Removes an APK left over from an update; Android installs it while this
+/// app is closed, so it cannot clean up right after.
+void removeUpdateLeftovers() {
+  if (!Platform.isAndroid) return;
+  try {
+    final f = File('${Directory.systemTemp.path}/$androidReleaseAsset');
+    if (f.existsSync()) f.deleteSync();
+  } on Object {
+    // Only tidying up.
+  }
+}
 
 Future<void> _installDeb(File deb) async {
   final r = await Process.run('pkexec', ['dpkg', '-i', deb.path]);

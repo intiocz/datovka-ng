@@ -77,12 +77,14 @@ Nejnovější verze, přímo ke stažení (starší jsou u [vydání](https://gi
 | macOS 12 a novější | [**DatovkaNG-macos.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-macos.zip) | rozbalit, přetáhnout do Aplikací, poprvé otevřít pravým tlačítkem → Otevřít |
 | Ubuntu, Debian, Mint | [**DatovkaNG-linux-amd64.deb**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-amd64.deb) | `sudo apt install ./DatovkaNG-linux-amd64.deb` |
 | Linux na ARM (arm64) | [**DatovkaNG-linux-arm64.deb**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-arm64.deb) | `sudo apt install ./DatovkaNG-linux-arm64.deb` (od verze 1.0.3) |
+| Fedora, openSUSE, Arch a další | [**DatovkaNG-linux-x86_64.AppImage**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-x86_64.AppImage) (ARM: [aarch64](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-linux-aarch64.AppImage)) | `chmod +x DatovkaNG-linux-*.AppImage` a spustit (od verze 1.0.5) |
 | Windows 10 a 11 | [**DatovkaNG-windows-amd64.zip**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-windows-amd64.zip) | rozbalit a spustit `datovka-ng.exe` (zatím málo vyzkoušené) |
 | Android 7 a novější | [**DatovkaNG-android.apk**](https://github.com/intiocz/datovka-ng/releases/latest/download/DatovkaNG-android.apk) | otevřít v telefonu a povolit instalaci (zkušebně) |
 | iPhone | – | v App Store není, sestavuje se v Xcode, viz [vývoj](docs/vyvoj.md) |
 
 Aplikace se při startu podívá, jestli není novější vydání. Na Macu, Linuxu
-a Windows se umí aktualizovat sama.
+(.deb i AppImage), Windows a Androidu se umí aktualizovat sama, na Androidu
+instalaci jen potvrdíte.
 
 Program se jmenuje `datovka-ng`, takže původní Datovka zůstane nainstalovaná
 vedle.

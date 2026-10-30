@@ -116,8 +116,9 @@ na testovací prostředí.
 | macOS | ✅ `DatovkaNG-macos.zip` z vydání, aktualizuje se sám |
 | Windows | ✅ `DatovkaNG-windows-amd64.zip` z vydání, vyzkoušeno ve Windows 11, aktualizuje se sám |
 | Linux | 🧪 `DatovkaNG-linux-amd64.deb` z vydání; v CI se sestaví a zabalí, na skutečném počítači zatím nevyzkoušeno |
+| Linux (ostatní distribuce) | 🧪 `DatovkaNG-linux-x86_64.AppImage` a `aarch64`, aktualizuje se sám přepsáním souboru |
 | iOS | 🧪 běží na iPhonu nad archivem z iCloud Drive; podepisuje se v Xcode, v App Store není |
-| Android | 🧪 podepsané `DatovkaNG-android.apk` z vydání (arm64); archiv se přenáší zálohou ZIP, iCloud na Androidu není |
+| Android | 🧪 podepsané `DatovkaNG-android.apk` z vydání (arm64); archiv se přenáší zálohou ZIP, iCloud na Androidu není; aktualizace se stáhne a předá systémovému instalátoru |
 
 ## Chování
 

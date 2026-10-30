@@ -1,6 +1,7 @@
 # Nahraje balíčky k vydání na GitHubu. Spouští se značkou v* (třeba v1.0.1).
-# Aplikace stahuje DatovkaNG-macos.zip, DatovkaNG-linux-amd64.deb (arm64.deb)
-# a DatovkaNG-windows-amd64.zip; DatovkaNG-android.apk se instaluje ručně.
+# Aplikace stahuje DatovkaNG-macos.zip, DatovkaNG-linux-amd64.deb (arm64.deb),
+# DatovkaNG-linux-x86_64.AppImage (aarch64), DatovkaNG-windows-amd64.zip
+# a DatovkaNG-android.apk.
 # Text vydání je docs/vydani/<značka>.md, ukazuje se i v aplikaci.
 name: release
 
@@ -16,8 +17,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { runner: ubuntu-24.04, arch: amd64, flutter: x64 }
-          - { runner: ubuntu-24.04-arm, arch: arm64, flutter: arm64 }
+          - { runner: ubuntu-24.04, arch: amd64, flutter: x64, appimage: x86_64 }
+          - { runner: ubuntu-24.04-arm, arch: arm64, flutter: arm64, appimage: aarch64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -48,10 +49,19 @@ jobs:
           ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
           chmod +x scripts/package-deb.sh
           scripts/package-deb.sh "$bundle" "$ver" dist/DatovkaNG-linux-${{ matrix.arch }}.deb ${{ matrix.arch }}
+      # One file for distributions without .deb (Fedora, openSUSE, Arch…).
+      - name: Balíček AppImage
+        run: |
+          bundle=app/build/linux/${{ matrix.flutter }}/release/bundle
+          ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
+          chmod +x scripts/package-appimage.sh
+          scripts/package-appimage.sh "$bundle" "$ver" dist/DatovkaNG-linux-${{ matrix.appimage }}.AppImage ${{ matrix.appimage }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux-deb-${{ matrix.arch }}
-          path: dist/DatovkaNG-linux-${{ matrix.arch }}.deb
+          path: |
+            dist/DatovkaNG-linux-${{ matrix.arch }}.deb
+            dist/DatovkaNG-linux-${{ matrix.appimage }}.AppImage
 
   macos:
     runs-on: macos-15
@@ -164,6 +174,7 @@ jobs:
           [ -f "$notes" ] || { echo "Balíčky Datovky NG. Program se nesmí prodávat." > /tmp/notes.md; notes=/tmp/notes.md; }
           gh release create "${{ github.ref_name }}" dist/DatovkaNG-macos.zip dist/DatovkaNG-linux-amd64.deb \
             dist/DatovkaNG-linux-arm64.deb \
+            dist/DatovkaNG-linux-x86_64.AppImage dist/DatovkaNG-linux-aarch64.AppImage \
             dist/DatovkaNG-windows-amd64.zip dist/DatovkaNG-android.apk \
             --repo "${{ github.repository }}" \
             --title "Datovka NG ${{ github.ref_name }}" \

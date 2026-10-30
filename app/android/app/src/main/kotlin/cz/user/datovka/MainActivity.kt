@@ -2,6 +2,9 @@ package cz.user.datovka
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -28,6 +31,7 @@ class MainActivity : FlutterFragmentActivity() {
                         "secretKey" -> result.success(secretKey())
                         "open" -> result.success(open(call.arguments as String, false))
                         "share" -> result.success(open(call.arguments as String, true))
+                        "installApk" -> result.success(installApk(call.arguments as String))
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {
@@ -87,6 +91,33 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (e: ActivityNotFoundException) {
             false
         }
+    }
+
+    /// Starts the system installer for an update APK: "started", "foreign"
+    /// when it is not this app, or "permission" after opening the setting
+    /// that lets this app install packages. Android itself refuses an APK
+    /// signed with another key.
+    private fun installApk(path: String): String {
+        val info = packageManager.getPackageArchiveInfo(path, 0)
+        if (info?.packageName != packageName) return "foreign"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName"),
+                ),
+            )
+            return "permission"
+        }
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", File(path))
+        startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        return "started"
     }
 
     companion object {

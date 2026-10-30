@@ -41,6 +41,8 @@ jobs:
           ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
           sh scripts/package-deb.sh "$bundle" "$ver" DatovkaNG-linux-amd64.deb
           dpkg-deb -c DatovkaNG-linux-amd64.deb | grep -E "hicolor/256x256/apps/datovka-ng.png|cz.user.datovka_ng.desktop"
+          sh scripts/package-appimage.sh "$bundle" "$ver" DatovkaNG-linux-x86_64.AppImage x86_64
+          test -x DatovkaNG-linux-x86_64.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: DATOVKA-linux-x64
@@ -74,6 +76,8 @@ jobs:
           ver=$(sed -n 's/^version: //p' app/pubspec.yaml | cut -d+ -f1)
           sh scripts/package-deb.sh "$bundle" "$ver" DatovkaNG-linux-arm64.deb arm64
           dpkg-deb -f DatovkaNG-linux-arm64.deb Architecture | grep -x arm64
+          sh scripts/package-appimage.sh "$bundle" "$ver" DatovkaNG-linux-aarch64.AppImage aarch64
+          test -x DatovkaNG-linux-aarch64.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: DatovkaNG-linux-arm64

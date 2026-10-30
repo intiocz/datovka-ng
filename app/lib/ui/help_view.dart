@@ -110,8 +110,9 @@ class HelpView extends StatelessWidget {
             'kliknutím na číslo verze dole. Na Macu se balíček vymění a stažený soubor '
             'se smaže. Na Linuxu se nainstaluje balíček .deb (pro Intel, nebo ARM podle '
             'počítače) a systém se zeptá na heslo správce. Na Windows 10 a novějším se '
-            'složka s programem přepíše a zip se smaže. Na iPhonu a Androidu se jen '
-            'otevře stránka vydání.',
+            'složka s programem přepíše a zip se smaže. AppImage se přepíše novou '
+            'verzí. Na Androidu se balíček stáhne a systém požádá o potvrzení '
+            'instalace. Na iPhonu se jen otevře stránka vydání.',
           ),
           const _H('Kdo to platí'),
           const _P(
