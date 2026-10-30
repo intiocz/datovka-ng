@@ -87,10 +87,17 @@ void main() {
         );
         await tester.pumpWidget(DatovkaApp(state: state));
         open(tester.element(find.byType(Scaffold).first), state);
-        await tester.pumpAndSettle();
-        await tester.runAsync(
-          () => Future.delayed(const Duration(milliseconds: 200)),
-        );
+        await tester.pump();
+        // Some dialogs load with real I/O (e.g. looking for Claude Code in
+        // the shell), slower on CI: let it finish before settling, since a
+        // spinner never settles.
+        for (var i = 0; i < 100; i++) {
+          await tester.runAsync(
+            () => Future.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+          if (find.byType(CircularProgressIndicator).evaluate().isEmpty) break;
+        }
         await tester.pumpAndSettle();
       });
     }
