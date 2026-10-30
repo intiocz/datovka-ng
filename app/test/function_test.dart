@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:datovka/data/core_bridge_ffi.dart' show argsWithDataDir;
 import 'package:datovka/data/ai.dart';
 import 'package:datovka/data/mailbox.dart';
@@ -244,6 +246,26 @@ void main() {
     );
     expect(ArchiveLocation.storageLabel('/tmp/Documents/Archiv.datovka'), 'Dokumenty');
     expect(ArchiveLocation.packageName, 'Archiv.datovka');
+  });
+
+  test('a moved archive is reported, not replaced by an empty one', () {
+    final tmp = Directory.systemTemp.createTempSync('archiv');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final gone = '${tmp.path}/Datovka';
+    expect(ArchiveLocation.missingOnMac(gone), gone);
+    expect(ArchiveLocation.missingOnMac(tmp.path), isNot(tmp.path));
+  });
+
+  test('the archive path shows where a link really leads', () {
+    if (Platform.isWindows) return; // links need extra rights there
+    final tmp = Directory.systemTemp.createTempSync('archiv');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final real = Directory('${tmp.path}/Datovka archiv')..createSync();
+    final link = Link('${tmp.path}/.dsgui')..createSync(real.path);
+    expect(
+      ArchiveLocation.displayPath(link.path),
+      real.resolveSymbolicLinksSync(),
+    );
   });
 
   test('a switched-off assistant does not ask for a message', () async {

@@ -29,6 +29,15 @@ bool get _mac => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (_mac) {
+    // The Mac app is not sandboxed, so it has no file entitlements; without
+    // this the picker silently refuses to open its panel.
+    try {
+      await FilePicker.skipEntitlementsChecks();
+    } on Object {
+      // The picker then fails as before; the rest of the app is unaffected.
+    }
+  }
   await loadGovTemplates();
   const devDir = String.fromEnvironment('DATOVKA_DATA_DIR');
   if (devDir.isNotEmpty) {
@@ -39,7 +48,11 @@ Future<void> main() async {
     final restored = _mobile ? await DataFolder.restore() : null;
     final dir = await ArchiveLocation.resolve(saved: saved, restored: restored);
     if (dir == null || dir.isEmpty) {
-      runApp(const _PickDataFolder());
+      runApp(
+        _PickDataFolder(
+          missing: _mac ? ArchiveLocation.missingOnMac(saved) : null,
+        ),
+      );
       return;
     }
     CoreBridge.dataDir = dir;
@@ -94,9 +107,13 @@ class _Loading extends StatelessWidget {
   );
 }
 
-/// First start on a phone: choose the folder with the Datovka data.
+/// First start on a phone, or a Mac whose archive folder is gone: choose the
+/// folder with the Datovka data.
 class _PickDataFolder extends StatelessWidget {
-  const _PickDataFolder();
+  /// The Mac's archive folder that is no longer there.
+  final String? missing;
+
+  const _PickDataFolder({this.missing});
 
   @override
   Widget build(BuildContext context) {
@@ -118,18 +135,27 @@ class _PickDataFolder extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Vyberte archiv zpráv, stejný jako na počítači. V Souborech je '
-                    'na iCloud Drive: složka Datovka (původní Datovka propojená '
-                    's iCloudem), nebo Dokumenty → Datovka NG → Archiv.datovka. '
-                    'Potom se otevírá sám a zprávy se stahují stejně jako na počítači.',
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Na Macu se archiv na iCloud Drive dostane v Nastavení → '
-                    'Archiv → Přesunout archiv do Dokumentů.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  if (_mac)
+                    Text(
+                      'Archiv zpráv se nenašel ve složce ${missing ?? ''}. '
+                      'Nejspíš byl přesunut nebo přejmenován, třeba na iCloud '
+                      'Drive. Vyberte složku, ve které je (obsahuje soubor '
+                      'dsgui.conf).',
+                    )
+                  else ...[
+                    const Text(
+                      'Vyberte archiv zpráv, stejný jako na počítači. V Souborech je '
+                      'na iCloud Drive: složka Datovka (původní Datovka propojená '
+                      's iCloudem), nebo Dokumenty → Datovka NG → Archiv.datovka. '
+                      'Potom se otevírá sám a zprávy se stahují stejně jako na počítači.',
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Na Macu se archiv na iCloud Drive dostane v Nastavení → '
+                      'Archiv → Přesunout archiv do Dokumentů.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: () async {
@@ -146,13 +172,19 @@ class _PickDataFolder extends StatelessWidget {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () async {
-                      final dir = await ArchiveLocation.newOnPhone();
+                      final dir = _mac
+                          ? await ArchiveLocation.newOnMac()
+                          : await ArchiveLocation.newOnPhone();
                       if (dir == null) return;
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setString('dataDir', dir);
                       await main();
                     },
-                    child: const Text('Začít s novým archivem jen v telefonu'),
+                    child: Text(
+                      _mac
+                          ? 'Začít s novým, prázdným archivem'
+                          : 'Začít s novým archivem jen v telefonu',
+                    ),
                   ),
                 ],
               ),

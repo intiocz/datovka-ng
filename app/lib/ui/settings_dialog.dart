@@ -469,9 +469,24 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 Icon(Icons.folder_outlined, size: 18, color: t.inkMuted),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SelectableText(
-                    s.dataDir ?? 'Archiv není otevřený',
-                    style: text.bodyMedium,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        s.dataDir == null
+                            ? 'Archiv není otevřený'
+                            : ArchiveLocation.displayPath(s.dataDir!),
+                        style: text.bodyMedium,
+                      ),
+                      // The real path, for a folder reached through a link
+                      // such as ~/.dsgui.
+                      if (s.dataDir != null &&
+                          ArchiveLocation.displayPath(s.dataDir!) != s.dataDir)
+                        SelectableText(
+                          ArchiveLocation.resolved(s.dataDir!),
+                          style: text.bodySmall?.copyWith(color: t.inkMuted),
+                        ),
+                    ],
                   ),
                 ),
               ],

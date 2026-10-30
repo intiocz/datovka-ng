@@ -10,7 +10,7 @@ import 'user_error.dart';
 
 /// Version shown to people and compared with GitHub releases.
 /// Keep it the same as `version:` in pubspec.yaml (the part before +).
-const appVersion = '1.0.5';
+const appVersion = '1.0.6';
 
 /// Tests turn this off so a run never calls GitHub.
 bool checkUpdatesOnStart = true;

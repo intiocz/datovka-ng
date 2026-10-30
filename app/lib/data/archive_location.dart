@@ -25,7 +25,11 @@ class ArchiveLocation {
         !(Platform.isIOS && await _emptyOnPhone(saved))) {
       return saved;
     }
-    if (Platform.isMacOS) return _mac();
+    // A Mac whose archive was moved or renamed asks for it instead of
+    // quietly starting an empty one.
+    if (Platform.isMacOS) {
+      return missingOnMac(saved) == null ? _mac() : null;
+    }
     // Android keeps the archive in the app's own storage; another one comes
     // in through Nástroje → Obnovit ze zálohy.
     if (Platform.isAndroid) {
@@ -57,6 +61,28 @@ class ArchiveLocation {
   /// iCloud Drive.
   static Future<String?> newOnPhone() => _iosDocuments();
 
+  /// The archive folder a Mac used and no longer finds: the saved one, or
+  /// `~/.dsgui` left as a link to a renamed folder (often in iCloud Drive).
+  static String? missingOnMac(String? saved) {
+    if (saved != null && saved.isNotEmpty && !Directory(saved).existsSync()) {
+      return saved;
+    }
+    final legacy = legacyDir();
+    if (legacy != null &&
+        FileSystemEntity.isLinkSync(legacy) &&
+        !Directory(legacy).existsSync()) {
+      return legacy;
+    }
+    return null;
+  }
+
+  /// A new, empty archive in the usual place on a Mac.
+  static Future<String> newOnMac() async {
+    final pkg = macPackagePath();
+    await Directory(pkg).create(recursive: true);
+    return pkg;
+  }
+
   static Future<String> _mac() async {
     final pkg = macPackagePath();
     final legacy = legacyDir();
@@ -64,8 +90,7 @@ class ArchiveLocation {
     final hasOld = legacy != null && File('$legacy/dsgui.conf').existsSync();
     // Do not duplicate a large existing archive on first launch.
     if (!hasNew && hasOld) return legacy;
-    await Directory(pkg).create(recursive: true);
-    return pkg;
+    return newOnMac();
   }
 
   static Future<String?> _iosDocuments() async {
@@ -105,6 +130,20 @@ class ArchiveLocation {
     } on Object {
       return dir;
     }
+  }
+
+  /// The folder as a person knows it: `iCloud Drive/Datovka archiv` rather
+  /// than `~/.dsgui` or `~/Library/Mobile Documents/com~apple~CloudDocs/…`.
+  static String displayPath(String dir) {
+    final home = Platform.environment['HOME'] ?? '';
+    var real = resolved(dir);
+    const cloud = '/Library/Mobile Documents/com~apple~CloudDocs';
+    if (home.isNotEmpty && real.startsWith('$home$cloud')) {
+      real = 'iCloud Drive${real.substring('$home$cloud'.length)}';
+    } else if (home.isNotEmpty && real.startsWith('$home/')) {
+      real = '~${real.substring(home.length)}';
+    }
+    return real;
   }
 
   static bool _inCloud(String dir) =>
