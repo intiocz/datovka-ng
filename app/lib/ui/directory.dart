@@ -7,14 +7,36 @@ import 'app_scope.dart';
 import 'compose.dart';
 
 /// Search in the public ISDS directory of data boxes.
-class DirectoryView extends StatelessWidget {
+class DirectoryView extends StatefulWidget {
   final Widget? leading;
 
   const DirectoryView({super.key, this.leading});
 
   @override
+  State<DirectoryView> createState() => _DirectoryViewState();
+}
+
+class _DirectoryViewState extends State<DirectoryView> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
+    final leading = widget.leading;
+    // The field always shows what the list is filtered by, also when the
+    // search changed elsewhere (the recipient field of a message).
+    if (_query.text.trim() != s.directoryQuery) {
+      _query.value = TextEditingValue(
+        text: s.directoryQuery,
+        selection: TextSelection.collapsed(offset: s.directoryQuery.length),
+      );
+    }
     final t = Tokens.of(context);
     final text = Theme.of(context).textTheme;
     final results = s.directoryResults;
@@ -30,7 +52,7 @@ class DirectoryView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
               child: Row(
                 children: [
-                  if (leading != null) ...[leading!, const SizedBox(width: 4)],
+                  if (leading != null) ...[leading, const SizedBox(width: 4)],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,6 +91,7 @@ class DirectoryView extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       TextField(
+                        controller: _query,
                         autofocus: true,
                         onChanged: s.searchDirectory,
                         style: text.bodyMedium,

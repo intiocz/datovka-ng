@@ -1392,9 +1392,16 @@ class AppState extends ChangeNotifier {
   List<DirectoryEntry>? directoryResults;
   bool directoryBusy = false;
 
+  /// Starts with an empty search: the recipient field of a message shares
+  /// this search, and a query left over from there hid the contacts.
   void openDirectory() {
     view = Screen.directory;
     selectedId = null;
+    directoryScope = DirectoryScope.general;
+    directoryQuery = '';
+    directoryResults = null;
+    directoryBusy = false;
+    _searchSeq++;
     notifyListeners();
   }
 

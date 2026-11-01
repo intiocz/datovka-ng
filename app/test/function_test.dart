@@ -11,6 +11,7 @@ import 'package:datovka/data/user_error.dart';
 import 'package:datovka/main.dart';
 import 'package:datovka/ui/ai_dialog.dart';
 import 'package:datovka/ui/app_lock.dart';
+import 'package:datovka/ui/directory.dart';
 import 'package:datovka/ui/home.dart';
 import 'package:datovka/ui/login_dialog.dart';
 import 'package:datovka/ui/format.dart' show monthNames;
@@ -215,6 +216,50 @@ void main() {
     expect(find.text('Odpověď úřadu'), findsOneWidget);
     expect(find.text('Faktura od jiného'), findsNothing);
     expect(state.folder, Folder.all);
+  });
+
+  testWidgets('a recipient search in a message does not hide the contacts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final state = AppState(
+      messages: [
+        Message(
+          boxId: 'moje',
+          dmId: '1',
+          direction: Direction.received,
+          subject: 'Výzva',
+          counterparty: 'Finanční úřad',
+          counterpartyAddress: '',
+          counterpartyBoxId: 'urad1',
+          delivered: DateTime(2026, 5, 1),
+        ),
+      ],
+    );
+    await tester.pumpWidget(DatovkaApp(state: state));
+    await tester.pumpAndSettle();
+    // What the recipient field of a new message does while typing a name.
+    await state.searchDirectory('úřad pro ochranu');
+    await tester.tap(find.text('Adresář schránek'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Moje kontakty ('), findsOneWidget);
+    expect(find.text('Všechny schránky v ISDS'), findsNothing);
+    final field = tester.widget<TextField>(
+      find.descendant(
+        of: find.byType(DirectoryView),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(field.controller!.text, isEmpty);
+
+    // A search changed elsewhere shows in the field it filters by.
+    await state.searchDirectory('fin');
+    await tester.pumpAndSettle();
+    expect(field.controller!.text, 'fin');
+    expect(find.text('Finanční úřad'), findsOneWidget);
   });
 
   test('claude code notice says the text is sent', () async {
