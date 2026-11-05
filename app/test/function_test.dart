@@ -15,6 +15,7 @@ import 'package:datovka/ui/directory.dart';
 import 'package:datovka/ui/home.dart';
 import 'package:datovka/ui/login_dialog.dart';
 import 'package:datovka/ui/format.dart' show monthNames;
+import 'package:datovka/ui/message_detail.dart';
 import 'package:datovka/ui/message_list.dart';
 import 'package:datovka/ui/settings_dialog.dart';
 import 'package:datovka/ui/sidebar.dart';
@@ -22,6 +23,7 @@ import 'package:datovka/data/app_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -260,6 +262,55 @@ void main() {
     await tester.pumpAndSettle();
     expect(field.controller!.text, 'fin');
     expect(find.text('Finanční úřad'), findsOneWidget);
+  });
+
+  testWidgets('the subject and parties of a message can be copied', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final state = _sample();
+    await tester.pumpWidget(DatovkaApp(state: state));
+    final m = state.visible.first;
+    state.open(m.dmId);
+    await tester.pumpAndSettle();
+    final subject = find.descendant(
+      of: find.byType(MessageDetail),
+      matching: find.text(m.subject),
+    );
+    // Drag over the subject with the mouse, then copy.
+    final from = tester.getTopLeft(subject) + const Offset(1, 5);
+    final g = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+    await g.moveTo(tester.getBottomRight(subject) - const Offset(1, 5));
+    await g.up();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+    expect(copied, m.subject);
   });
 
   test('claude code notice says the text is sent', () async {

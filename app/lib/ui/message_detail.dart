@@ -69,21 +69,32 @@ class MessageDetail extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        Text(
-                          m.subject,
-                          style: text.headlineSmall?.copyWith(fontSize: 24),
-                        ),
-                        const SizedBox(height: 18),
-                        _Party(
-                          label: received ? 'Od' : 'Komu',
-                          name: m.counterparty,
-                          address: m.counterpartyAddress,
-                        ),
-                        const SizedBox(height: 10),
-                        _Party(
-                          label: received ? 'Komu' : 'Od',
-                          name: box?.name ?? m.boxId,
-                          address: 'Schránka ${m.boxId}',
+                        // Subject and parties can be selected and copied,
+                        // also together in one drag.
+                        SelectionArea(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                m.subject,
+                                style: text.headlineSmall?.copyWith(
+                                  fontSize: 24,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              _Party(
+                                label: received ? 'Od' : 'Komu',
+                                name: m.counterparty,
+                                address: m.counterpartyAddress,
+                              ),
+                              const SizedBox(height: 10),
+                              _Party(
+                                label: received ? 'Komu' : 'Od',
+                                name: box?.name ?? m.boxId,
+                                address: 'Schránka ${m.boxId}',
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 22),
                         FutureBuilder<Map<String, dynamic>?>(
